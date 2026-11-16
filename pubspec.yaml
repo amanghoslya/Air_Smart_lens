@@ -1,0 +1,66 @@
+name: air_smart_lens
+description: Air Smart Lens — the customer ordering app for Vishal Optical Co. (converted from the HTML prototype, 3 Nov 2026).
+publish_to: 'none'
+version: 0.2.0+2
+
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+  flutter: '>=3.24.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Short sound effects (wheel ticks, add to cart, order placed).
+  audioplayers: ^6.5.0
+  # Settings kept on the phone (welcome poster, Pairs / Pieces, saved powers, dark mode, sound).
+  shared_preferences: ^2.5.3
+  # QR codes: drawing them (VOC1 lens codes) and reading them with the camera.
+  qr: ^3.0.2
+  mobile_scanner: ^7.5.0
+  # The QR label PDF goes out through the phone's share sheet (save, print, WhatsApp).
+  share_plus: '>=11.0.0 <13.0.0'
+  # The cart reminder 10 minutes after the app goes to the background (3 Nov).
+  flutter_local_notifications: '>=18.0.0 <21.0.0'
+  timezone: ^0.10.0
+
+  # API & Network Architecture
+  dio: ^5.7.0
+  retrofit: ^4.4.1
+  pretty_dio_logger: ^1.4.0
+  device_info_plus: ^11.1.0
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  flutter_riverpod: ^2.6.1
+  pinput: ^5.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  build_runner: ^2.4.13
+  retrofit_generator: ^9.1.5
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/data/
+    - assets/images/brand/
+    - assets/images/envelopes/
+    - assets/sounds/
+  fonts:
+    - family: DMSans
+      fonts:
+        - asset: assets/fonts/DMSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/DMSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/DMSans-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/DMSans-Bold.ttf
+          weight: 700
+    - family: CormorantGaramond
+      fonts:
+        - asset: assets/fonts/CormorantGaramond-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/CormorantGaramond-SemiBold.ttf
+          weight: 600

@@ -1,0 +1,21 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    strict-casts: false
+  exclude:
+    - build/**
+    - lib/core/Data/**
+    - lib/core/AuthService/**
+    - lib/core/Network/*.g.dart
+    - lib/core/constant/**
+    - lib/Screens/**
+    - lib/widgets/**
+
+linter:
+  rules:
+    prefer_single_quotes: true
+    require_trailing_commas: false
+
+formatter:
+  page_width: 160

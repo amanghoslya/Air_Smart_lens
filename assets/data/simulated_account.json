@@ -1,0 +1,401 @@
+{
+ "customer": {
+  "name": "Shree Opticals",
+  "tier": "Medium Wholesaler",
+  "tierFactor": 1,
+  "limit": 500000,
+  "outstanding": 125680
+ },
+ "pastOrders": [
+  {
+   "id": "SO-1048",
+   "date": "23 Sep",
+   "kind": "one",
+   "desc": "2 parcel lines · 2 pairs",
+   "lines": [
+    {
+     "pid": 60,
+     "rx": {
+      "sph": -2,
+      "cyl": -0.5,
+      "axis": 90,
+      "add": 2
+     }
+    },
+    {
+     "pid": 36,
+     "rx": {
+      "sph": -1.5,
+      "cyl": -0.5,
+      "axis": 90,
+      "add": 2
+     }
+    }
+   ],
+   "pid": null,
+   "li": null,
+   "seed": null
+  },
+  {
+   "id": "SO-1042",
+   "date": "18 Sep",
+   "kind": "grid",
+   "desc": "Stock · Air Smart · Green 1.60 · -8.00-2.00 · 168 pairs",
+   "lines": null,
+   "pid": 1,
+   "li": 0,
+   "seed": "last"
+  },
+  {
+   "id": "SO-1031",
+   "date": "2 Aug",
+   "kind": "grid",
+   "desc": "Stock · Air Smart · Green 1.60 · -8.00-2.00 · 120 pairs",
+   "lines": null,
+   "pid": 1,
+   "li": 0,
+   "seed": "aug"
+  }
+ ],
+ "imageAspect": {
+  "veriwide1_card": 0.43320610687022904,
+  "airsmart1_card": 0.43320610687022904,
+  "kopperx1_card": 0.43320610687022904,
+  "vishal1_card": 0.43320610687022904,
+  "lords1_card": 0.43320610687022904,
+  "max1_card": 0.43320610687022904,
+  "bold1_card": 0.43320610687022904,
+  "veriwide2_card": 0.5044642857142857,
+  "airsmart2_card": 0.5044642857142857,
+  "kopperx2_card": 0.5044642857142857,
+  "vishal2_card": 0.5044642857142857,
+  "lords2_card": 0.5044642857142857,
+  "max2_card": 0.5044642857142857,
+  "bold2_card": 0.5044642857142857,
+  "veriwide2_face": 0.5044642857142857,
+  "airsmart2_face": 0.5044642857142857,
+  "kopperx2_face": 0.5044642857142857,
+  "vishal2_face": 0.5044642857142857,
+  "lords2_face": 0.5044642857142857,
+  "max2_face": 0.5044642857142857,
+  "bold2_face": 0.5044642857142857,
+  "max1_face": 0.5044642857142857,
+  "vishal1_face": 0.5044642857142857,
+  "kopperx1_face": 0.5044642857142857,
+  "brand_photofast": 0.5044642857142857,
+  "brand_blusafe": 0.5044642857142857,
+  "welcome_full": 0.56287,
+  "slx1_full": 0.56287,
+  "slx1_face": 0.5044642857142857,
+  "slx2_full": 0.56287,
+  "slx2_face": 0.5044642857142857,
+  "clear1_full": 0.56287,
+  "clear1_face": 0.5044642857142857,
+  "clear2_full": 0.56287,
+  "clear2_face": 0.5044642857142857,
+  "opal1_full": 0.56287,
+  "opal1_face": 0.5044642857142857,
+  "opal2_full": 0.56287,
+  "opal2_face": 0.5044642857142857,
+  "kopperx3_full": 0.56287,
+  "kopperx3_face": 0.5044642857142857,
+  "photofast3_full": 0.56287,
+  "photofast3_face": 0.5044642857142857,
+  "blusafe3_full": 0.56287,
+  "blusafe3_face": 0.5044642857142857,
+  "veriwide3_full": 0.56287,
+  "veriwide3_face": 0.5044642857142857,
+  "airsmart3_full": 0.56287,
+  "airsmart3_face": 0.5044642857142857,
+  "vishal3_full": 0.41084,
+  "vishal3_face": 0.5044642857142857,
+  "lords3_full": 0.4,
+  "lords3_face": 0.5044642857142857,
+  "volt_env": 0.5044642857142857,
+  "croma_env": 0.5044642857142857,
+  "rapid_env": 0.5044642857142857
+ },
+ "brandImages": [
+  "veriwide1_card",
+  "airsmart1_card",
+  "kopperx1_card",
+  "vishal1_card",
+  "lords1_card",
+  "max1_card",
+  "bold1_card",
+  "veriwide2_card",
+  "airsmart2_card",
+  "kopperx2_card",
+  "vishal2_card",
+  "lords2_card",
+  "max2_card",
+  "bold2_card",
+  "veriwide2_face",
+  "airsmart2_face",
+  "kopperx2_face",
+  "vishal2_face",
+  "lords2_face",
+  "max2_face",
+  "bold2_face",
+  "max1_face",
+  "vishal1_face",
+  "kopperx1_face",
+  "brand_photofast",
+  "brand_blusafe",
+  "welcome_full",
+  "slx1_full",
+  "slx1_face",
+  "slx2_full",
+  "slx2_face",
+  "clear1_full",
+  "clear1_face",
+  "clear2_full",
+  "clear2_face",
+  "opal1_full",
+  "opal1_face",
+  "opal2_full",
+  "opal2_face",
+  "kopperx3_full",
+  "kopperx3_face",
+  "photofast3_full",
+  "photofast3_face",
+  "blusafe3_full",
+  "blusafe3_face",
+  "veriwide3_full",
+  "veriwide3_face",
+  "airsmart3_full",
+  "airsmart3_face",
+  "vishal3_full",
+  "vishal3_face",
+  "lords3_full",
+  "lords3_face"
+ ],
+ "brandImageAliases": {
+  "volt_env": "r34",
+  "croma_env": "r367",
+  "rapid_env": "r454"
+ },
+ "envelopes": [
+  "r2",
+  "r12",
+  "r17",
+  "r20",
+  "r23",
+  "r30",
+  "r34",
+  "r36",
+  "r38",
+  "r42",
+  "r44",
+  "r48",
+  "r52",
+  "r56",
+  "r57",
+  "r60",
+  "r61",
+  "r64",
+  "r68",
+  "r77",
+  "r79",
+  "r82",
+  "r84",
+  "r85",
+  "r90",
+  "r95",
+  "r98",
+  "r100",
+  "r103",
+  "r107",
+  "r115",
+  "r127",
+  "r137",
+  "r139",
+  "r142",
+  "r149",
+  "r150",
+  "r152",
+  "r164",
+  "r165",
+  "r166",
+  "r167",
+  "r169",
+  "r173",
+  "r175",
+  "r178",
+  "r183",
+  "r185",
+  "r193",
+  "r194",
+  "r195",
+  "r199",
+  "r201",
+  "r203",
+  "r205",
+  "r207",
+  "r211",
+  "r212",
+  "r214",
+  "r218",
+  "r220",
+  "r223",
+  "r225",
+  "r226",
+  "r230",
+  "r234",
+  "r237",
+  "r243",
+  "r245",
+  "r249",
+  "r253",
+  "r263",
+  "r277",
+  "r290",
+  "r302",
+  "r307",
+  "r309",
+  "r313",
+  "r317",
+  "r305",
+  "r332",
+  "r334",
+  "r336",
+  "r338",
+  "r342",
+  "r344",
+  "r346",
+  "r348",
+  "r350",
+  "r354",
+  "r363",
+  "r367",
+  "r371",
+  "r374",
+  "r383",
+  "r395",
+  "r406",
+  "r432",
+  "r448",
+  "r449",
+  "r450",
+  "r458",
+  "r454",
+  "r460",
+  "r467",
+  "r475",
+  "r476",
+  "r480"
+ ],
+ "favs": [
+  {
+   "pid": 60,
+   "li": 0
+  },
+  {
+   "pid": 1,
+   "li": 0
+  },
+  {
+   "pid": 36,
+   "li": 0
+  },
+  {
+   "pid": 25,
+   "li": 0
+  },
+  {
+   "pid": 53,
+   "li": 0
+  },
+  {
+   "pid": 19,
+   "li": 0
+  }
+ ],
+ "scanSamples": [
+  "VOC1|1|P|0|-2.50|-0.75|180|0.00",
+  "VOC1|36|P|0|1.50|0.00|180|2.00",
+  "VOC1|60|P|4|0.00|1.00|180|2.50"
+ ],
+ "welcome": [
+  [
+   "welcome_full",
+   "VeriWide Optical"
+  ],
+  [
+   "slx1_full",
+   "SLX"
+  ],
+  [
+   "veriwide3_full",
+   "VeriWide"
+  ],
+  [
+   "opal1_full",
+   "Opal"
+  ],
+  [
+   "welcome_full",
+   "VeriWide Optical"
+  ],
+  [
+   "kopperx3_full",
+   "Kopper X"
+  ],
+  [
+   "veriwide3_full",
+   "VeriWide"
+  ],
+  [
+   "airsmart3_full",
+   "Air Smart"
+  ],
+  [
+   "welcome_full",
+   "VeriWide Optical"
+  ],
+  [
+   "clear1_full",
+   "Clear"
+  ],
+  [
+   "veriwide3_full",
+   "VeriWide"
+  ],
+  [
+   "photofast3_full",
+   "Photo Fast"
+  ],
+  [
+   "welcome_full",
+   "VeriWide Optical"
+  ],
+  [
+   "blusafe3_full",
+   "Blu Safe"
+  ],
+  [
+   "veriwide3_full",
+   "VeriWide"
+  ],
+  [
+   "slx2_full",
+   "SLX"
+  ],
+  [
+   "welcome_full",
+   "VeriWide Optical"
+  ],
+  [
+   "opal2_full",
+   "Opal"
+  ],
+  [
+   "veriwide3_full",
+   "VeriWide"
+  ],
+  [
+   "clear2_full",
+   "Clear"
+  ]
+ ]
+}
