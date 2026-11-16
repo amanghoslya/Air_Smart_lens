@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:air_smart_lens/Screens/Home_Screen/Provider/brandsProvider.dart';
+import 'package:air_smart_lens/core/Data/responseModel/brandsResModel.dart';
 
 import '../../core/brands.dart';
 import '../../core/models.dart';
@@ -89,7 +92,7 @@ ScreenView homeScreen(BuildContext context, AppState s) {
     const SizedBox(height: 8),
     Text('${s.tr('Good morning')}, ${s.cust.name}', style: AppText.small(c)),
     Display(s.tr('See every power,\norder in a minute')),
-    Bleed(child: HeroCarousel(s: s)),
+    Bleed(child: ApiHeroCarousel(s: s)),
     // 6 Nov: Order by (five ways to start), then Shop by brand, which moves along by itself
     HeadRow(s.tr('Order by')),
     Row(
@@ -107,7 +110,7 @@ ScreenView homeScreen(BuildContext context, AppState s) {
       ],
     ),
     HeadRow(s.tr('Shop by brand'), right: LinkBtn(s.tr('See all'), onTap: () => s.go('brands'))),
-    Bleed(child: AutoStrip(children: [for (final b in s.brands) BrandMini(b)])),
+    const Bleed(child: ApiBrandStrip()),
     HeadRow(s.tr('Posters and videos'), right: LinkBtn(s.tr('See all'), onTap: () => s.go('posters'))),
     Strip(
       gap: 10,
@@ -248,10 +251,76 @@ class PlayBadge extends StatelessWidget {
   );
 }
 
+/// One card of the Home carousel: a brand picture with its name and tagline written over it.
+class HeroItem {
+  final String key; // catalog brand key, e.g. 'AIR SMART'
+  final String title;
+  final String tagline;
+  final String? url; // picture from the API
+  final String asset; // local picture, used for the card's shape and as a fallback
+  final BrandItem? info; // the API brand, handed to the brand page
+  const HeroItem({required this.key, required this.title, required this.tagline, required this.asset, this.url, this.info});
+}
+
+/// Home's brand cards, loaded from GET /customer/brands. The text over each picture is laid out exactly as before.
+/// While loading it shows grey cards; if the call fails it falls back to the client's local brand cards.
+class ApiHeroCarousel extends ConsumerWidget {
+  final AppState s;
+  const ApiHeroCarousel({super.key, required this.s});
+
+  static List<HeroItem> _local() => [
+    for (final h in heroCards) HeroItem(key: h.$1, title: bname(h.$1), tagline: brandLine[h.$1] ?? '', asset: h.$2),
+  ];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.c;
+    return ref
+        .watch(brandsProvider)
+        .when(
+          data: (list) => list.isEmpty
+              ? HeroCarousel(s: s, items: _local())
+              : HeroCarousel(
+                  key: ValueKey(list.length),
+                  s: s,
+                  items: [
+                    for (final b in list)
+                      HeroItem(
+                        key: b.key,
+                        title: (b.name ?? b.id ?? '').trim(),
+                        tagline: brandLine[b.key] ?? b.description ?? '',
+                        url: b.picture,
+                        info: b,
+                        asset: '${b.key.toLowerCase().replaceAll(' ', '')}_bg',
+                      ),
+                  ],
+                ),
+          error: (e, st) => HeroCarousel(s: s, items: _local()),
+          loading: () => SizedBox(
+            height: 340 + 4 + 31,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 35),
+              children: [
+                for (var i = 0; i < 3; i++)
+                  Container(
+                    width: 340 * 768 / 1376,
+                    margin: const EdgeInsets.only(right: 10),
+                    decoration: BoxDecoration(color: c.card2, borderRadius: BorderRadius.circular(16)),
+                  ),
+              ],
+            ),
+          ),
+        );
+  }
+}
+
 /// The client's brand cards as a swipeable carousel with dots, auto-advancing every 4 s.
 class HeroCarousel extends StatefulWidget {
   final AppState s;
-  const HeroCarousel({super.key, required this.s});
+  final List<HeroItem> items;
+  const HeroCarousel({super.key, required this.s, required this.items});
   @override
   State<HeroCarousel> createState() => _HeroCarouselState();
 }
@@ -262,7 +331,8 @@ class _HeroCarouselState extends State<HeroCarousel> {
   int _on = 0;
   static const  _h = 340.0, _gap = 10.0, _pad = 18.0;
 
-  List<double> get _widths => [for (final c in heroCards) _h * imageAspect(c.$2, widget.s.data.imageAspect)];
+  List<HeroItem> get _items => widget.items;
+  List<double> get _widths => [for (final c in _items) _h * imageAspect(c.asset, widget.s.data.imageAspect)];
   double _pos(int i) {
     var x = 0.0;
     for (var k = 0; k < i; k++) {
@@ -274,9 +344,9 @@ class _HeroCarouselState extends State<HeroCarousel> {
   int _idx() {
     if (!_ctl.hasClients) return 0;
     final off = _ctl.offset;
-    if (off >= _ctl.position.maxScrollExtent - 2) return heroCards.length - 1;
+    if (off >= _ctl.position.maxScrollExtent - 2) return _items.length - 1;
     var b = 0;
-    for (var i = 0; i < heroCards.length; i++) {
+    for (var i = 0; i < _items.length; i++) {
       if ((_pos(i) - off).abs() < (_pos(b) - off).abs()) b = i;
     }
     return b;
@@ -284,7 +354,7 @@ class _HeroCarouselState extends State<HeroCarousel> {
 
   void _to(int i) {
     if (!_ctl.hasClients) return;
-    i = (i + heroCards.length) % heroCards.length;
+    i = (i + _items.length) % _items.length;
     _ctl.animateTo(_pos(i).clamp(0, _ctl.position.maxScrollExtent), duration: const Duration(milliseconds: 450), curve: Curves.easeInOut);
   }
 
@@ -336,14 +406,14 @@ class _HeroCarouselState extends State<HeroCarousel> {
               controller: _ctl,
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.fromLTRB(_pad, 0, _pad, 4),
-              itemCount: heroCards.length,
+              itemCount: _items.length,
               separatorBuilder: (context, index) => const SizedBox(width: _gap),
               itemBuilder: (context, i) {
-                final h = heroCards[i];
-                final brandTitle = bname(h.$1);
-                final tagline = brandLine[h.$1] ?? '';
+                final h = _items[i];
+                final brandTitle = h.title;
+                final tagline = h.tagline;
                 return Pressable(
-                  onTap: () => widget.s.openBrand(h.$1),
+                  onTap: () => widget.s.openBrand(h.key, info: h.info),
                   child: Container(
                     width: _widths[i],
                     height: _h,
@@ -362,14 +432,23 @@ class _HeroCarouselState extends State<HeroCarousel> {
                         ),
 
                         // Background clean image (text-free portrait)
-                        Positioned.fill(
-                          child: BrandImg(
-                            h.$2,
-                            fit: BoxFit.cover,
-                            alignment: Alignment.center,
-                            fallback: h.$2 == 'welcome_bg' ? 'welcome_full' : null,
-                            semantic: '$brandTitle: $tagline',
-                          ),
+        Positioned.fill(
+                          child: h.url != null
+                              ? Image.network(
+                                  h.url!,
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment.center,
+                                  semanticLabel: '$brandTitle: $tagline',
+                                  loadingBuilder: (_, child, p) => p == null ? child : const SizedBox(),
+                                  errorBuilder: (ctx, err, st) => BrandImg(h.asset, fit: BoxFit.cover, fallback: h.asset == 'welcome_bg' ? 'welcome_full' : null),
+                                )
+                              : BrandImg(
+                                  h.asset,
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment.center,
+                                  fallback: h.asset == 'welcome_bg' ? 'welcome_full' : null,
+                                  semantic: '$brandTitle: $tagline',
+                                ),
                         ),
 
                         // Top gradient overlay for contrast and header readability
@@ -525,7 +604,7 @@ class _HeroCarouselState extends State<HeroCarousel> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              for (var i = 0; i < heroCards.length; i++)
+              for (var i = 0; i < _items.length; i++)
                 GestureDetector(
                   onTap: () {
                     _to(i);
@@ -585,7 +664,7 @@ ScreenView shopScreen(BuildContext context, AppState s) {
       ),
     ),
     HeadRow(s.tr('Shop by brand'), right: LinkBtn(s.tr('See all'), onTap: () => s.go('brands')), top: 14),
-    Strip(gap: 10, padding: const EdgeInsets.only(bottom: 6), children: [for (final b in s.brands) BrandMini(b)]),
+    const Bleed(child: ApiBrandStrip()),
     HeadRow(s.tr('Order by')),
     Gap(gap: 10, [
       OrderTypeCard(
@@ -662,6 +741,97 @@ class BrandMini extends StatelessWidget {
                 style: TextStyle(fontFamily: kSerif, fontSize: 16, fontWeight: FontWeight.w600, height: 1.1, color: c.ink),
               ),
               Text('${ps.length} product${ps.length == 1 ? '' : 's'}', style: TextStyle(fontSize: 10.5, color: c.ink2)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Home's Shop by brand, loaded from GET /customer/brands. While loading it shows grey tiles; if the call fails it
+/// falls back to the brands in the local catalog so Home is never empty.
+class ApiBrandStrip extends ConsumerWidget {
+  const ApiBrandStrip({super.key});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = AppScope.of(context);
+    final c = context.c;
+    return ref
+        .watch(brandsProvider)
+        .when(
+          data: (list) => list.isEmpty
+              ? AutoStrip(children: [for (final b in s.brands) BrandMini(b)])
+              : AutoStrip(children: [for (final b in list) ApiBrandMini(b)]),
+          error: (e, st) => AutoStrip(children: [for (final b in s.brands) BrandMini(b)]),
+          loading: () => Strip(
+            gap: 10,
+            padding: const EdgeInsets.only(bottom: 6),
+            children: [
+              for (var i = 0; i < 5; i++)
+                Container(
+                  width: 96,
+                  height: 118 + 6 + 34,
+                  alignment: Alignment.topCenter,
+                  child: Container(
+                    height: 118,
+                    decoration: BoxDecoration(color: c.card2, borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+            ],
+          ),
+        );
+  }
+}
+
+/// `.bmini` for a brand from the API: its picture (network), name and product count.
+class ApiBrandMini extends StatelessWidget {
+  final BrandItem b;
+  const ApiBrandMini(this.b, {super.key});
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final c = context.c;
+    final name = (b.name ?? b.id ?? '').trim();
+    final n = b.productCount ?? 0;
+    final url = b.picture;
+    final local = brandImage[b.key];
+    Widget fallback() => local != null
+        ? BrandImg(local, alignment: const Alignment(0, -0.5))
+        : Center(child: FractionallySizedBox(widthFactor: .62, child: LensArt(tint: c.ink2)));
+    return Semantics(
+      button: true,
+      label: '$name, $n products',
+      child: Pressable(
+        onTap: () => s.openBrand(b.key, info: b),
+        child: SizedBox(
+          width: 96,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 118,
+                width: 96,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(color: c.card2, borderRadius: BorderRadius.circular(14), boxShadow: c.e1),
+                child: url != null
+                    ? Image.network(
+                        url,
+                        fit: BoxFit.cover,
+                        alignment: const Alignment(0, -0.5),
+                        loadingBuilder: (_, child, p) => p == null ? child : const SizedBox(),
+                        errorBuilder: (ctx, err, st) => fallback(),
+                      )
+                    : fallback(),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontFamily: kSerif, fontSize: 16, fontWeight: FontWeight.w600, height: 1.1, color: c.ink),
+              ),
+              Text('$n product${n == 1 ? '' : 's'}', style: TextStyle(fontSize: 10.5, color: c.ink2)),
             ],
           ),
         ),

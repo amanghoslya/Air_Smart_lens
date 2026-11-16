@@ -1,5 +1,6 @@
 import 'package:air_smart_lens/core/Data/BodyModel/sendOtpBodyModel.dart';
 import 'package:air_smart_lens/core/Data/BodyModel/verifyOtpBodyModel.dart';
+import 'package:air_smart_lens/core/Data/responseModel/brandsResModel.dart';
 import 'package:air_smart_lens/core/Data/responseModel/getProfileResModel.dart' hide Data;
 import 'package:air_smart_lens/core/Data/responseModel/verifyOtpResModel.dart';
 import 'package:air_smart_lens/core/Network/apistate.dart';
@@ -54,6 +55,14 @@ class AuthService {
     try {
       final response = await api.getProfile();
       return response;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<BrandsResModel> getBrandsData() async {
+    try {
+      return await api.getBrands();
     } catch (e) {
       rethrow;
     }

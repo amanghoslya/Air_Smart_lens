@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../core/brands.dart';
+import '../core/Data/responseModel/brandsResModel.dart';
 import '../core/catalog_data.dart';
 import '../core/format.dart';
 import '../core/js_compat.dart';
@@ -240,6 +241,9 @@ class AppState extends ChangeNotifier {
 
   // ---------------- browsing ----------------
   String? brand;
+  /// The brand as the API sent it (picture, name, description, product count) for the brand page; null when the
+  /// page was opened without it.
+  BrandItem? brandInfo;
   String btab = 'All';
   String bfilter = 'All';
   String? plBrand;
@@ -746,8 +750,9 @@ class AppState extends ChangeNotifier {
     go('search');
   }
 
-  void openBrand(String b) {
+  void openBrand(String b, {BrandItem? info}) {
     brand = b;
+    brandInfo = info;
     btab = screen == 'brands' && bfilter != 'All' ? bfilter : 'All'; // opens on the type chosen on Brands
     go('brand');
   }
@@ -2052,12 +2057,12 @@ class AppState extends ChangeNotifier {
   }
 
   /// Which tab is lit for a screen (`TABFOR`). Null hides the tab bar.
+  /// 'brand' (the brand detail page) is deliberately not listed: it opens as its own page, under no tab.
   static String? tabFor(String sc) => switch (sc) {
     'home' => 'home',
     'shop' ||
     'lenstype' ||
     'brands' ||
-    'brand' ||
     'stockpick' ||
     'stocktype' ||
     'search' ||
@@ -2087,6 +2092,14 @@ class AppState extends ChangeNotifier {
     'terms' => 'account',
     _ => null,
   };
+
+  /// The tab lit right now. A Shop-group screen (a brand, Brands, Search, ...) that was opened from Home keeps Home
+  /// lit instead of jumping to Shop; opening it from the Shop tab keeps Shop lit.
+  String? get activeTab {
+    final t = tabFor(screen);
+    if (t == 'shop' && hist.isNotEmpty && hist.first == 'home') return 'home';
+    return t;
+  }
 
   void tab(String t) {
     hist = [];

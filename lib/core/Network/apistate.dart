@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:retrofit/retrofit.dart';
 import 'package:air_smart_lens/core/Data/BodyModel/sendOtpBodyModel.dart';
 import 'package:air_smart_lens/core/Data/BodyModel/verifyOtpBodyModel.dart';
+import 'package:air_smart_lens/core/Data/responseModel/brandsResModel.dart';
 import 'package:air_smart_lens/core/Data/responseModel/getProfileResModel.dart';
 import 'package:air_smart_lens/core/Data/responseModel/verifyOtpResModel.dart';
 
@@ -21,4 +22,7 @@ abstract class ApiState {
 
   @GET('/customer/profile')
   Future<GetProfileResModel> getProfile();
+
+  @GET('/customer/brands')
+  Future<BrandsResModel> getBrands();
 }

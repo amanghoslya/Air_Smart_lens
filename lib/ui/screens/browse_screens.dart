@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../Screens/Home_Screen/Provider/brandsProvider.dart';
+import '../../core/Data/responseModel/brandsResModel.dart';
 import '../../core/brands.dart';
 import '../../core/format.dart';
 import '../../core/models.dart';
@@ -67,9 +70,8 @@ ScreenView accountScreen(BuildContext context, AppState s) {
 
 ScreenView brandsScreen(BuildContext context, AppState s) {
   final f = s.bfilter;
-  final list = s.brands.where((b) => f == 'All' || brandProducts(b, s.catalog).any((p) => p.ptype == f)).toList();
   return ScreenView([
-    Hd('Brands', right: SearchBtn(onTap: s.toSearch)),
+    Hd(s.tr('Brands'), right: SearchBtn(onTap: s.toSearch)),
     Strip(
       bleed: false,
       children: [
@@ -78,36 +80,128 @@ ScreenView brandsScreen(BuildContext context, AppState s) {
       ],
     ),
     const SizedBox(height: 12),
-    LayoutBuilder(
-      builder: (context, cons) {
-        final w = (cons.maxWidth - 10) / 2;
-        return Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            for (final b in list)
-              SizedBox(
-                width: w,
-                child: _BrandCard(s: s, b: b),
-              ),
-          ],
-        );
-      },
-    ),
+    ApiBrandsGrid(s: s),
   ]);
+}
+
+class ApiBrandsGrid extends ConsumerWidget {
+  final AppState s;
+  const ApiBrandsGrid({super.key, required this.s});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.c;
+    final f = s.bfilter;
+
+    List<BrandItem> localBrands() => [
+          for (final b in s.brands)
+            BrandItem(
+              id: b,
+              name: bname(b),
+              productCount: brandProducts(b, s.catalog).length,
+            ),
+        ];
+
+    Widget buildGrid(List<BrandItem> rawList) {
+      final items = rawList.where((item) {
+        if (f == 'All') return true;
+        final ps = brandProducts(item.key, s.catalog);
+        return ps.any((p) => p.ptype == f);
+      }).toList();
+
+      if (items.isEmpty) {
+        return const Muted('No brands found for this filter.', margin: EdgeInsets.only(top: 24));
+      }
+
+      return LayoutBuilder(
+        builder: (context, cons) {
+          final w = (cons.maxWidth - 10) / 2;
+          return Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final item in items)
+                SizedBox(
+                  width: w,
+                  child: _BrandCard(s: s, item: item),
+                ),
+            ],
+          );
+        },
+      );
+    }
+
+    return ref.watch(brandsProvider).when(
+          data: (list) => buildGrid(list.isEmpty ? localBrands() : list),
+          error: (e, st) => buildGrid(localBrands()),
+          loading: () => LayoutBuilder(
+            builder: (context, cons) {
+              final w = (cons.maxWidth - 10) / 2;
+              return Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (var i = 0; i < 6; i++)
+                    SizedBox(
+                      width: w,
+                      child: AspectRatio(
+                        aspectRatio: 4 / 5,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: c.card2,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        );
+  }
 }
 
 class _BrandCard extends StatelessWidget {
   final AppState s;
-  final String b;
-  const _BrandCard({required this.s, required this.b});
+  final BrandItem item;
+  const _BrandCard({required this.s, required this.item});
+
   @override
   Widget build(BuildContext context) {
     final c = context.c;
+    final b = item.key;
     final im = brandImage[b];
+    final url = item.picture;
+    final name = (item.name?.trim().isNotEmpty == true) ? item.name!.trim() : bname(b);
     final ps = brandProducts(b, s.catalog);
+    final hasImage = (url != null && url.isNotEmpty) || im != null;
+
+    Widget fallback() {
+      if (im != null) {
+        return BrandImg(im, alignment: const Alignment(0, -.5), semantic: name);
+      } else if (ps.isNotEmpty) {
+        return Center(
+          child: FractionallySizedBox(widthFactor: .58, child: LensArt(tint: coatTint(ps.first))),
+        );
+      } else {
+        return Center(
+          child: FractionallySizedBox(widthFactor: .62, child: LensArt(tint: c.ink2)),
+        );
+      }
+    }
+
+    String countLabel;
+    if (ps.isNotEmpty) {
+      final count = ps.where((p) => s.bfilter == 'All' || p.ptype == s.bfilter).length;
+      countLabel = '$count ${s.bfilter == 'All' ? 'lenses' : typeName[s.bfilter]}';
+    } else {
+      final n = item.productCount ?? 0;
+      countLabel = '$n product${n == 1 ? '' : 's'}';
+    }
+
     return Pressable(
-      onTap: () => s.openBrand(b),
+      onTap: () => s.openBrand(b, info: item),
       child: AspectRatio(
         aspectRatio: 4 / 5,
         child: Container(
@@ -116,13 +210,17 @@ class _BrandCard extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (im != null)
-                BrandImg(im, alignment: const Alignment(0, -.5), semantic: bname(b))
-              else if (ps.isNotEmpty)
-                Center(
-                  child: FractionallySizedBox(widthFactor: .58, child: LensArt(tint: coatTint(ps.first))),
-                ),
-              if (im != null)
+              if (url != null && url.isNotEmpty)
+                Image.network(
+                  url,
+                  fit: BoxFit.cover,
+                  alignment: const Alignment(0, -.5),
+                  loadingBuilder: (_, child, p) => p == null ? child : const SizedBox(),
+                  errorBuilder: (ctx, err, st) => fallback(),
+                )
+              else
+                fallback(),
+              if (hasImage)
                 const DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -145,12 +243,23 @@ class _BrandCard extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            bname(b),
-                            style: TextStyle(fontFamily: kSerif, fontWeight: FontWeight.w600, fontSize: 21, color: im != null ? Colors.white : c.ink),
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: kSerif,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 21,
+                              color: hasImage ? Colors.white : c.ink,
+                            ),
                           ),
                           Text(
-                            '${ps.where((p) => s.bfilter == 'All' || p.ptype == s.bfilter).length} ${s.bfilter == 'All' ? 'lenses' : typeName[s.bfilter]}',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: (im != null ? Colors.white : c.ink).withValues(alpha: .85)),
+                            countLabel,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: (hasImage ? Colors.white : c.ink).withValues(alpha: .85),
+                            ),
                           ),
                         ],
                       ),
@@ -170,10 +279,11 @@ class _BrandCard extends StatelessWidget {
 /// `.bhero`: the photo header of a brand page (also About us).
 class BrandHero extends StatelessWidget {
   final String? image;
+  final String? imageUrl; // picture from the API; wins over the local `image`
   final Product? lensFor;
   final String title, sub;
   final VoidCallback onBack;
-  const BrandHero({super.key, this.image, this.lensFor, required this.title, required this.sub, required this.onBack});
+  const BrandHero({super.key, this.image, this.imageUrl, this.lensFor, required this.title, required this.sub, required this.onBack});
   @override
   Widget build(BuildContext context) {
     final c = context.c;
@@ -183,8 +293,17 @@ class BrandHero extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           ColoredBox(color: c.card2),
-          if (image != null) BrandImg(image!, alignment: const Alignment(0, -.4)),
-          if (image == null && lensFor != null)
+          if (imageUrl != null)
+            Image.network(
+              imageUrl!,
+              fit: BoxFit.cover,
+              alignment: const Alignment(0, -.4),
+              loadingBuilder: (_, child, p) => p == null ? child : const SizedBox(),
+              errorBuilder: (ctx, err, st) => image != null ? BrandImg(image!, alignment: const Alignment(0, -.4)) : const SizedBox(),
+            )
+          else if (image != null)
+            BrandImg(image!, alignment: const Alignment(0, -.4)),
+          if (imageUrl == null && image == null && lensFor != null)
             Center(
               child: SizedBox(width: 120, child: LensArt(tint: coatTint(lensFor!))),
             ),
@@ -236,6 +355,8 @@ ScreenView brandScreen(BuildContext context, AppState s) {
   final c = context.c;
   final b = s.brand ?? s.brands.first;
   final im = brandImage[b];
+  // what the API sent for this brand (the card that was tapped); null when opened some other way
+  final info = s.brandInfo != null && s.brandInfo!.key == b ? s.brandInfo : null;
   final ps = brandProducts(b, s.catalog);
   final types = ['All', ...LensType.all.where((t) => ps.any((p) => p.ptype == t))];
   final tab = types.contains(s.btab) ? s.btab : 'All';
@@ -244,9 +365,12 @@ ScreenView brandScreen(BuildContext context, AppState s) {
     Bleed(
       child: BrandHero(
         image: im,
+        imageUrl: info?.picture,
         lensFor: ps.isNotEmpty ? ps.first : null,
-        title: bname(b),
-        sub: '${brandLine[b] ?? ''} · ${ps.length} product${ps.length == 1 ? '' : 's'}',
+        title: info?.name?.trim().isNotEmpty == true ? info!.name!.trim() : bname(b),
+        sub: info != null
+            ? '${[info.description, brandLine[b]].whereType<String>().where((x) => x.trim().isNotEmpty).toSet().join(' · ')} · ${info.productCount ?? ps.length} product${(info.productCount ?? ps.length) == 1 ? '' : 's'}'
+            : '${brandLine[b] ?? ''} · ${ps.length} product${ps.length == 1 ? '' : 's'}',
         onBack: s.back,
       ),
     ),
@@ -278,6 +402,7 @@ ScreenView brandScreen(BuildContext context, AppState s) {
         ),
       ),
     ),
+    if (show.isEmpty) const Muted('No lenses to order for this brand yet.', margin: EdgeInsets.only(top: 14)),
     Gap([
       for (final p in show) BrandProductCard(p, b == 'KOPPERX' ? shortName(p) : '${coatShort(p)} ${p.index}${p.variant.isNotEmpty ? ' · ${p.variant}' : ''}'),
     ]),
