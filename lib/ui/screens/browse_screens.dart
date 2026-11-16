@@ -1,66 +1,152 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../Screens/Browse_Screen/Provider/getProfileProvider.dart';
+import '../../core/Data/responseModel/getProfileResModel.dart';
 import '../../core/brands.dart';
 import '../../core/format.dart';
 import '../../core/models.dart';
 import '../../core/search.dart';
 import '../../state/app_state.dart';
 import '../art.dart';
-import '../parts.dart';
 import '../icons.dart';
-import '../shell.dart';
+import '../lens3d.dart' show LoaderLens;
+import '../parts.dart';
 import '../sheets.dart';
+import '../shell.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'parcel_screens.dart' show typeName;
 
 // ---------------------------------------------------------------- account
 
-ScreenView accountScreen(BuildContext context, AppState s) {
-  final c = context.c;
-  final head = s.cust.limit - s.cust.outstanding;
-  Widget item(String t, String sub, VoidCallback onTap) => RowCard(title: t, sub: sub, chevron: true, onTap: onTap);
-  return ScreenView([
-    const Hd('Account', right: BagBtn(), noBack: true),
-    Display(s.cust.name, margin: const EdgeInsets.only(top: 4, bottom: 6)),
-    Muted(
-      '${s.cust.tier} · ${s.persona == 'owner'
-          ? 'Owner'
-          : s.persona == 'staff'
-          ? 'Staff login'
-          : 'Sub-customer'}',
-      small: false,
-      margin: const EdgeInsets.only(bottom: 14),
-    ),
-    if (s.persona != 'sub')
-      CardBox(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        child: Tots([
-          TotRow('Credit limit', money(s.cust.limit)),
-          TotRow('Outstanding', money(s.cust.outstanding)),
-          TotRow('Available', money(head), valueColor: c.good),
+ScreenView accountScreen(BuildContext context, AppState s) => ScreenView([
+      AccountScreenWidget(s: s),
+    ]);
+
+class AccountScreenWidget extends ConsumerWidget {
+  final AppState s;
+  const AccountScreenWidget({super.key, required this.s});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.c;
+    final profileAsync = ref.watch(getProfileProvider);
+
+    return profileAsync.when(
+      loading: () => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Hd('Account', right: BagBtn(), noBack: true),
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.65,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const LoaderLens(),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Loading profile...',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: c.ink2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      error: (e, st) => _buildContent(context, null),
+      data: (res) => _buildContent(context, res.data),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, Data? profile) {
+    final c = context.c;
+    final name = (profile?.companyName?.trim().isNotEmpty == true
+            ? profile!.companyName
+            : profile?.name?.trim().isNotEmpty == true
+                ? profile!.name
+                : null) ??
+        s.cust.name;
+    final tier = (profile?.pricingTier?.trim().isNotEmpty == true ? profile!.pricingTier : null) ?? s.cust.tier;
+    final limit = profile?.creditLimit ?? profile?.totalLimit ?? s.cust.limit;
+    final outstanding = profile?.outstanding ?? s.cust.outstanding;
+    final head = limit - outstanding;
+
+    Widget item(String t, String sub, VoidCallback onTap) =>
+        RowCard(title: t, sub: sub, chevron: true, onTap: onTap);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Hd('Account', right: BagBtn(), noBack: true),
+        Display(name, margin: const EdgeInsets.only(top: 4, bottom: 6)),
+        Muted(
+          '$tier · ${s.persona == 'owner'
+              ? 'Owner'
+              : s.persona == 'staff'
+              ? 'Staff login'
+              : 'Sub-customer'}',
+          small: false,
+          margin: const EdgeInsets.only(bottom: 14),
+        ),
+        if (s.persona != 'sub')
+          CardBox(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            child: Tots([
+              TotRow('Credit limit', money(limit)),
+              TotRow('Outstanding', money(outstanding)),
+              TotRow('Available', money(head), valueColor: c.good),
+            ]),
+          ),
+        Gap([
+          if (s.persona != 'sub') ...[
+            item(
+              'Ledger',
+              'Statement, closing balance ${money(outstanding)}',
+              () => s.go('ledger'),
+            ),
+            item('Invoices', 'PDFs of every bill', () => s.go('invoices')),
+          ],
+          item('Favorites', s.favSub, () => s.go('wishlist')),
+          if (s.persona == 'owner')
+            item(
+              'Staff logins',
+              'Show prices · show availability · add to cart · place order',
+              () => s.go('stafflogins'),
+            ),
+          item(
+            'Language',
+            s.lang == 'hi' ? 'हिंदी' : 'English',
+            () => s.go('language'),
+          ),
+          RowCard(
+            title: 'Sound and vibration',
+            sub: 'Clicks on the power dial, add to cart, order placed',
+            trailing: Toggle(on: s.fb),
+            onTap: s.toggleSound,
+          ),
+          item(
+            'Contact us',
+            'Call, WhatsApp group or support ticket',
+            () => s.go('contact'),
+          ),
+          item(
+            'Everything else',
+            'Pre-orders, price list, posters, videos, certificates, web login, FAQ',
+            s.openDrawer,
+          ),
+          item('Sign out', '', () => showSignOutDialog(context, s)),
         ]),
-      ),
-    Gap([
-      if (s.persona != 'sub') ...[
-        item('Ledger', 'Statement, closing balance ${money(s.cust.outstanding)}', () => s.go('ledger')),
-        item('Invoices', 'PDFs of every bill', () => s.go('invoices')),
       ],
-      item('Favorites', s.favSub, () => s.go('wishlist')),
-      if (s.persona == 'owner') item('Staff logins', 'Show prices · show availability · add to cart · place order', () => s.go('stafflogins')),
-      item('Language', s.lang == 'hi' ? 'हिंदी' : 'English', () => s.go('language')),
-      RowCard(
-        title: 'Sound and vibration',
-        sub: 'Clicks on the power dial, add to cart, order placed',
-        trailing: Toggle(on: s.fb),
-        onTap: s.toggleSound,
-      ),
-      item('Contact us', 'Call, WhatsApp group or support ticket', () => s.go('contact')),
-      item('Everything else', 'Pre-orders, price list, posters, videos, certificates, web login, FAQ', s.openDrawer),
-      item('Sign out', '', () => showSignOutDialog(context, s)),
-    ]),
-  ]);
+    );
+  }
 }
 
 // ---------------------------------------------------------------- brands
