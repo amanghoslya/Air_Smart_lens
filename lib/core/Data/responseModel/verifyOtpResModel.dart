@@ -96,7 +96,7 @@ class Customer {
     String? pricingTier;
     String? stockGrade;
     String? accountStatus;
-    int? creditLimit;
+    num? creditLimit;
     String? paymentTerm;
     String? approvalStatus;
     String? deviceId;
@@ -112,9 +112,9 @@ class Customer {
     int? year;
     int? createdAt;
     int? updatedAt;
-    int? currentBalance;
+    num? currentBalance;
     String? rejectionReason;
-    int? usedBalance;
+    num? usedBalance;
     String? paymentGrade;
     bool? allowMultiDevice;
     List<LoggedInDevice>? loggedInDevices;

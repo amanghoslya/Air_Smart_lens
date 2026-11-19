@@ -68,7 +68,7 @@ class Data {
     String? pricingTier;
     String? stockGrade;
     String? accountStatus;
-    int? creditLimit;
+    num? creditLimit;
     String? paymentTerm;
     String? approvalStatus;
     String? deviceId;
@@ -85,14 +85,14 @@ class Data {
     int? createdAt;
     int? updatedAt;
     int? v;
-    int? currentBalance;
+    num? currentBalance;
     String? rejectionReason;
-    int? usedBalance;
+    num? usedBalance;
     String? paymentGrade;
     bool? allowMultiDevice;
     List<LoggedInDevice>? loggedInDevices;
-    int? totalLimit;
-    int? outstanding;
+    num? totalLimit;
+    num? outstanding;
 
     Data({
         this.subcustomerPermissions,
