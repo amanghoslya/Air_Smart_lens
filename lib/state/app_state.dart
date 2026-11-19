@@ -7,6 +7,9 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../core/brands.dart';
+import '../core/Data/responseModel/brandsResModel.dart';
+import '../core/Data/responseModel/catalogResModel.dart' as catalog_res;
+import '../core/Data/responseModel/productDetailsResModel.dart';
 import '../core/catalog_data.dart';
 import '../core/format.dart';
 import '../core/js_compat.dart';
@@ -54,7 +57,9 @@ class BulkState {
 
   /// Set when a cart line is reopened on the grid: it goes back into the same order.
   String? grp;
-  BulkState({this.pid, this.li = 0, Map<String, double>? grid, this.sel, this.eye = 'P', this.grp}) : grid = grid ?? {}, grids = {};
+  BulkState({this.pid, this.li = 0, Map<String, double>? grid, this.sel, this.eye = 'P', this.grp})
+      : grid = grid ?? {},
+        grids = {};
 }
 
 class RxDetails {
@@ -73,7 +78,7 @@ class LastOrder {
   final String number;
   final String group; // 'parcel' or 'bulk' (5 Nov: each is placed on its own)
   LastOrder({required this.n, required this.v, required this.cart, required this.until, required this.as, required this.number, this.group = 'parcel'})
-    : cancelled = false;
+      : cancelled = false;
   bool get open => as == 'owner' && !cancelled && DateTime.now().isBefore(until);
 }
 
@@ -206,7 +211,254 @@ class AppState extends ChangeNotifier {
   List<Product> get catalog => data.catalog;
   Customer get cust => data.customer;
   StockService get stock => api.stock;
-  Product product(int pid) => catalog[pid - 1];
+  Product product(int pid) => logic.product(pid);
+
+  final Map<String, int> _apiPidByKey = {};
+  int _nextApiPid = 100000;
+
+  static String _resolveAppLensType(String? raw, String fallback) {
+    final clean = (raw ?? '').trim().toLowerCase().replaceAll(RegExp(r'[\s_-]'), '');
+    if (clean.contains('single') || clean == 'sv') return LensType.sv;
+    if (clean.contains('kt')) return LensType.kt;
+    if (clean.contains('prog')) return LensType.prog;
+    return fallback;
+  }
+
+  /// Registers (or updates) an API catalog item as a [Product] so results, details,
+  /// favorites, cart and checkout work identically to catalog products.
+  Product registerApiProduct(catalog_res.ListElement el, {required String fallbackLensType}) {
+    final key = (el.id?.trim().isNotEmpty == true)
+        ? el.id!.trim()
+        : '${el.brand ?? ''}|${el.productName ?? ''}|${el.coating ?? ''}|${el.index ?? ''}|${el.rangeLabel ?? ''}|${el.productCode ?? ''}';
+    final pid = _apiPidByKey.putIfAbsent(key, () => _nextApiPid++);
+
+    final ptype = _resolveAppLensType(el.lensType, fallbackLensType);
+    final rawBrand = (el.brand?.trim().isNotEmpty == true)
+        ? el.brand!.trim()
+        : (el.productName?.trim().isNotEmpty == true ? el.productName!.trim() : 'LENS');
+    final brandUpper = rawBrand.toUpperCase();
+    final idxStr = el.index != null ? el.index!.toStringAsFixed(2) : '';
+    final coatingStr = (el.coating ?? '').trim();
+    final baseStr = (el.base ?? '').trim();
+    final nameStr = (el.productName?.trim().isNotEmpty == true)
+        ? el.productName!.trim()
+        : '${bname(brandUpper)} ${coatingStr.isNotEmpty ? coatingStr : 'HC'} $idxStr'.trim();
+
+    final isMto = (el.lensNature ?? '').toLowerCase().contains('rx') ||
+        (el.lensNature ?? '').toLowerCase().contains('made to order') ||
+        (el.lensType ?? '').toLowerCase().contains('rx');
+
+    var sMin = (el.minSph ?? -10).toDouble().clamp(-20.0, 10.0);
+    var sMax = (el.maxSph ?? 6).toDouble().clamp(-20.0, 10.0);
+    if (sMin > sMax) {
+      final tmp = sMin;
+      sMin = sMax;
+      sMax = tmp;
+    }
+    var cMin = (el.minCyl ?? -4).toDouble().clamp(-6.0, 6.0);
+    var cMax = (el.maxCyl ?? 4).toDouble().clamp(-6.0, 6.0);
+    if (cMin > cMax) {
+      final tmp = cMin;
+      cMin = cMax;
+      cMax = tmp;
+    }
+    final sStep = (el.stepSph != null && el.stepSph! >= 0.25) ? el.stepSph!.toDouble() : 0.25;
+    final cStep = (el.stepCyl != null && el.stepCyl! >= 0.25) ? el.stepCyl!.toDouble() : 0.25;
+    final ax = (el.axis != null && el.axis! > 0) ? el.axis!.round() : null;
+
+    final rangeStr = (el.rangeLabel?.trim().isNotEmpty == true)
+        ? el.rangeLabel!.trim()
+        : (el.minSph != null && el.maxSph != null ? '${fmt(el.minSph!)} to ${fmt(el.maxSph!)}' : 'Standard');
+
+    final addStr = (el.minAdd != null && el.maxAdd != null) ? 'ADD ${fmt(el.minAdd!)} to ${fmt(el.maxAdd!)}' : '';
+    final priceInt = (el.customerPrice != null && el.customerPrice! > 0) ? el.customerPrice!.round() : null;
+    final imgUrl = (el.productImage?.trim().isNotEmpty == true)
+        ? el.productImage!.trim()
+        : (el.brandImage?.trim().isNotEmpty == true ? el.brandImage!.trim() : null);
+
+    final line = PriceLine(
+      dia: el.diameter?.round(),
+      range: rangeStr,
+      add: addStr,
+      axis: ax != null ? '$ax' : '',
+      price: priceInt,
+      status: 'ok',
+      read: rangeStr,
+      boxes: [
+        PowerBlock(
+          s: [sMin, sMax],
+          c: [cMin, cMax],
+          ss: sStep,
+          cs: cStep,
+          cross: el.sphereSmallerThanCylinder == true,
+          ax: ax,
+        ),
+      ],
+    );
+
+    final product = Product(
+      id: pid,
+      brand: brandUpper,
+      name: nameStr,
+      coating: coatingStr,
+      base: baseStr,
+      ptype: ptype,
+      rx: isMto,
+      index: idxStr,
+      material: (el.lensNature?.trim().isNotEmpty == true) ? el.lensNature!.trim() : indexNames[idxStr],
+      features: baseStr.isNotEmpty ? baseStr : null,
+      lines: [line],
+      apiId: key,
+      imageUrl: imgUrl,
+      apiAvailable: el.available,
+      apiNa: el.nAFlag == true,
+    );
+
+    logic.extraProducts[pid] = product;
+    return product;
+  }
+
+  /// Updates or registers a [Product] using live Product Details API data (`Data`).
+  Product updateProductFromDetails(Data d, {Product? existing}) {
+    final key = d.id?.trim() ?? '';
+    final pid = existing?.id ?? (key.isNotEmpty ? _apiPidByKey.putIfAbsent(key, () => _nextApiPid++) : _nextApiPid++);
+    final fallbackLensType = existing?.ptype ?? lens;
+    final ptype = _resolveAppLensType(d.lensType, fallbackLensType);
+
+    final rawBrand = (d.brandName?.trim().isNotEmpty == true)
+        ? d.brandName!.trim()
+        : ((d.brand?.trim().isNotEmpty == true)
+            ? d.brand!.trim()
+            : (existing?.brand ?? 'LENS'));
+    final brandUpper = rawBrand.toUpperCase();
+
+    final idxStr = d.index != null
+        ? d.index!.toStringAsFixed(2)
+        : (existing?.index ?? '');
+
+    final coatingStr = (d.coating?.trim().isNotEmpty == true)
+        ? d.coating!.trim()
+        : (existing?.coating ?? '');
+
+    final baseStr = (d.base?.trim().isNotEmpty == true)
+        ? d.base!.trim()
+        : (existing?.base ?? '');
+
+    final nameStr = (d.productName?.trim().isNotEmpty == true)
+        ? d.productName!.trim()
+        : (existing?.name ?? '${bname(brandUpper)} ${coatingStr.isNotEmpty ? coatingStr : 'HC'} $idxStr'.trim());
+
+    final isMto = (d.lensNature ?? '').toLowerCase().contains('rx') ||
+        (d.lensNature ?? '').toLowerCase().contains('made to order') ||
+        (d.lensType ?? '').toLowerCase().contains('rx') ||
+        (existing?.rx ?? false);
+
+    var sMin = (d.minSph ?? -10).toDouble().clamp(-20.0, 10.0);
+    var sMax = (d.maxSph ?? 6).toDouble().clamp(-20.0, 10.0);
+    if (sMin > sMax) {
+      final tmp = sMin;
+      sMin = sMax;
+      sMax = tmp;
+    }
+    var cMin = (d.minCyl ?? -4).toDouble().clamp(-6.0, 6.0);
+    var cMax = (d.maxCyl ?? 4).toDouble().clamp(-6.0, 6.0);
+    if (cMin > cMax) {
+      final tmp = cMin;
+      cMin = cMax;
+      cMax = tmp;
+    }
+    final sStep = (d.stepSph != null && d.stepSph! >= 0.25) ? d.stepSph!.toDouble() : 0.25;
+    final cStep = (d.stepCyl != null && d.stepCyl! >= 0.25) ? d.stepCyl!.toDouble() : 0.25;
+    final ax = (d.axis != null && d.axis! > 0) ? d.axis!.round() : null;
+
+    final rangeStr = (d.rangeLabel?.trim().isNotEmpty == true)
+        ? d.rangeLabel!.trim()
+        : (existing != null && existing.lines.isNotEmpty
+            ? existing.lines.first.range
+            : (d.minSph != null && d.maxSph != null ? '${fmt(d.minSph!.toDouble())} to ${fmt(d.maxSph!.toDouble())}' : 'Standard'));
+
+    final addStr = (d.minAdd != null && d.maxAdd != null) ? 'ADD ${fmt(d.minAdd!.toDouble())} to ${fmt(d.maxAdd!.toDouble())}' : '';
+    final priceInt = (d.customerPrice != null && d.customerPrice! > 0)
+        ? d.customerPrice!.round()
+        : (existing != null && existing.lines.isNotEmpty ? existing.lines.first.price : null);
+
+    final imgUrl = (d.productImage?.trim().isNotEmpty == true)
+        ? d.productImage!.trim()
+        : ((d.brandImage?.trim().isNotEmpty == true)
+            ? d.brandImage!.trim()
+            : existing?.imageUrl);
+
+    final line = PriceLine(
+      dia: d.diameter?.round() ?? (existing != null && existing.lines.isNotEmpty ? existing.lines.first.dia : null),
+      range: rangeStr,
+      add: addStr,
+      axis: ax != null ? '$ax' : (existing != null && existing.lines.isNotEmpty ? existing.lines.first.axis : ''),
+      price: priceInt,
+      status: 'ok',
+      read: rangeStr,
+      boxes: [
+        PowerBlock(
+          s: [sMin, sMax],
+          c: [cMin, cMax],
+          ss: sStep,
+          cs: cStep,
+          cross: d.sphereSmallerThanCylinder == true,
+          ax: ax,
+        ),
+      ],
+    );
+
+    final updated = Product(
+      id: pid,
+      brand: brandUpper,
+      name: nameStr,
+      coating: coatingStr,
+      base: baseStr,
+      ptype: ptype,
+      rx: isMto,
+      index: idxStr,
+      material: (d.lensNature?.trim().isNotEmpty == true)
+          ? d.lensNature!.trim()
+          : (existing?.material ?? indexNames[idxStr]),
+      features: baseStr.isNotEmpty ? baseStr : existing?.features,
+      lines: [line],
+      apiId: key.isNotEmpty ? key : existing?.apiId,
+      imageUrl: imgUrl,
+      apiAvailable: d.available ?? existing?.apiAvailable,
+      apiNa: d.nAFlag ?? (existing?.apiNa ?? false),
+    );
+
+    logic.extraProducts[pid] = updated;
+
+    if (prod != null && prod!.mi != null && prod!.mi! < matches.length) {
+      final currentMatch = matches[prod!.mi!];
+      if (currentMatch.p.id == pid || currentMatch.p.apiId == key) {
+        matches[prod!.mi!] = Match(
+          p: updated,
+          li: 0,
+          liL: 0,
+          uR: currentMatch.uR,
+          uL: currentMatch.uL,
+          mto: updated.rx,
+          mi: prod!.mi!,
+        );
+      }
+    }
+
+    return updated;
+  }
+
+  Match apiMatchFor(catalog_res.ListElement el) {
+    final p = registerApiProduct(el, fallbackLensType: lens);
+    return Match(p: p, li: 0, liL: 0, uR: rx, uL: rxL, mto: p.rx);
+  }
+
+  void openApiMatch(Match m) {
+    final indexed = m.withIndex(0);
+    matches = [indexed];
+    prod = ProdView(mi: 0, n: 1);
+    go('product');
+  }
 
   // ---------------- navigation ----------------
   String screen = 'welcome';
@@ -240,6 +492,10 @@ class AppState extends ChangeNotifier {
 
   // ---------------- browsing ----------------
   String? brand;
+
+  /// The brand as the API sent it (picture, name, description, product count) for the brand page; null when the
+  /// page was opened without it.
+  BrandItem? brandInfo;
   String btab = 'All';
   String bfilter = 'All';
   String? plBrand;
@@ -376,6 +632,10 @@ class AppState extends ChangeNotifier {
   }
 
   void back() {
+    if (screen == 'options') {
+      optIdx.clear();
+      optCoat.clear();
+    }
     screen = hist.isNotEmpty ? hist.removeLast() : 'home';
     drawerOpen = false;
     _render();
@@ -480,7 +740,8 @@ class AppState extends ChangeNotifier {
         final a = {
           for (final b in l.bx)
             if (b.ax != null && b.ax != 0 && blockHas(b, t.sph, t.cyl)) b.ax!.toDouble(),
-        }.toList()..sort();
+        }.toList()
+          ..sort();
         return a.isNotEmpty ? a : null;
       case 'add':
         return l.p.ptype == LensType.sv ? null : List.of(adds);
@@ -554,8 +815,8 @@ class AppState extends ChangeNotifier {
     final msg = !off[f]!
         ? '${f == 'sph' ? 'Sphere' : 'Cylinder'} on: set it on its wheel.'
         : f == 'cyl'
-        ? 'Cylinder off${lens != LensType.sv ? ' (and axis)' : ''}: sphere only.'
-        : 'Sphere off: cylinder only.';
+            ? 'Cylinder off${lens != LensType.sv ? ' (and axis)' : ''}: sphere only.'
+            : 'Sphere off: cylinder only.';
     refresh();
     toast(msg);
   }
@@ -587,12 +848,12 @@ class AppState extends ChangeNotifier {
     final mode = nEx > 0
         ? 'ok'
         : nNear > 0
-        ? 'near'
-        : nMto > 0
-        ? 'mto'
-        : nList > 0
-        ? 'listed'
-        : 'rx';
+            ? 'near'
+            : nMto > 0
+                ? 'mto'
+                : nList > 0
+                    ? 'listed'
+                    : 'rx';
     return (m: m, nEx: nEx, nNear: nNear, nMto: nMto, mode: mode);
   }
 
@@ -607,16 +868,9 @@ class AppState extends ChangeNotifier {
     return (all: all, list: list);
   }
 
-  int? pairPrice(Product p, int li, [int? liL]) {
-    final a = p.lines[li].price, b = p.lines[liL ?? li].price;
-    return a != null && b != null ? logic.tier((a + b) / 2) : null;
-  }
+  int? pairPrice(Product p, int li, [int? liL]) => logic.pairPrice(p, li, liL);
 
-  int? fromPrice(Product p) {
-    final ps = p.lines.where((l) => l.price != null).map((l) => l.price!).toList();
-    if (ps.isEmpty) return null;
-    return logic.tier(ps.reduce((a, b) => a < b ? a : b));
-  }
+  int? fromPrice(Product p) => logic.fromPrice(p);
 
   String pwShort(Rx x, Rx asked, String lt) =>
       fmt(x.sph) + (x.cyl != 0 ? ' / ${fmt(x.cyl)}' : '') + (lt != LensType.sv && x.add != asked.add ? ' · ADD ${fmt(x.add)}' : '');
@@ -746,8 +1000,9 @@ class AppState extends ChangeNotifier {
     go('search');
   }
 
-  void openBrand(String b) {
+  void openBrand(String b, {BrandItem? info}) {
     brand = b;
+    brandInfo = info;
     btab = screen == 'brands' && bfilter != 'All' ? bfilter : 'All'; // opens on the type chosen on Brands
     go('brand');
   }
@@ -909,12 +1164,14 @@ class AppState extends ChangeNotifier {
   int qtyFocusReq = 0;
 
   void rxContinue() {
+    optIdx.clear();
+    optCoat.clear();
     final m = rxModeInfo(lens).m;
     if (m.isEmpty) {
       go('results');
       return;
     }
-    showLoader('Checking stock for this power', 700, () => go('options'));
+    go('options');
   }
 
   void toggleIdx(String v) {
@@ -1011,12 +1268,14 @@ class AppState extends ChangeNotifier {
 
   void otherLenses() {
     only = null;
+    optIdx.clear();
+    optCoat.clear();
     final m = rxModeInfo(lens).m;
     if (m.isEmpty) {
       go('results');
       return;
     }
-    showLoader('Checking stock for this power', 700, () => go('options'));
+    go('options');
   }
 
   void toggleWish(int id) {
@@ -1146,8 +1405,8 @@ class AppState extends ChangeNotifier {
     final q = x.qR != 0 && x.qL == 0
         ? '${nfmt(x.qR)} right${x.qR == 1 ? '' : ' lenses'}'
         : x.qR == 0 && x.qL != 0
-        ? '${nfmt(x.qL)} left${x.qL == 1 ? '' : ' lenses'}'
-        : qWord('P', x.qty);
+            ? '${nfmt(x.qL)} left${x.qL == 1 ? '' : ' lenses'}'
+            : qWord('P', x.qty);
     return '$pw · ${rg(p.lines[x.li].range)} · $q';
   }
 
@@ -1316,8 +1575,8 @@ class AppState extends ChangeNotifier {
     final label = as == 'owner'
         ? 'Placing your order'
         : as == 'staff'
-        ? 'Saving to the shop cart'
-        : 'Sending to your distributor';
+            ? 'Saving to the shop cart'
+            : 'Sending to your distributor';
     showLoader(label, null);
     final g = checkoutGroup;
     final lines = cart.where((c) => c.group == g).toList();
@@ -1552,8 +1811,8 @@ class AppState extends ChangeNotifier {
         final lr = eye0 == 'R'
             ? (r: q, l: 0.0)
             : eye0 == 'L'
-            ? (r: 0.0, l: q)
-            : (r: q, l: q);
+                ? (r: 0.0, l: q)
+                : (r: q, l: q);
         _pushPre(Match(p: p, li: bulk.li, liL: bulk.li, uR: logic.cellPower(p, k)), lr.r, lr.l, eye0);
         np++;
       } else {
@@ -1828,10 +2087,10 @@ class AppState extends ChangeNotifier {
     final eyeTxt = p.ptype != LensType.prog
         ? 'BE · both eyes (same lens for either eye)'
         : r.eye == 'R'
-        ? 'Right eye only'
-        : r.eye == 'L'
-        ? 'Left eye only'
-        : 'BE · both eyes';
+            ? 'Right eye only'
+            : r.eye == 'L'
+                ? 'Left eye only'
+                : 'BE · both eyes';
     final pw = r.rxL != null ? ['R ${powerTxt(r.rx!, p.ptype)}', 'L ${powerTxt(r.rxL!, p.ptype)}'] : [powerTxt(r.rx!, p.ptype)];
     final range = r.liL != r.li ? 'R ${rg(p.lines[r.li].range)} · L ${rg(p.lines[r.liL].range)}' : rg(p.lines[r.li].range);
     return QrInfo(
@@ -1851,10 +2110,10 @@ class AppState extends ChangeNotifier {
     final p = product(c.pid!);
     final eye = p.ptype == LensType.prog
         ? (c.qR != 0 && c.qL == 0
-              ? 'R'
-              : c.qR == 0 && c.qL != 0
-              ? 'L'
-              : 'P')
+            ? 'R'
+            : c.qR == 0 && c.qL != 0
+                ? 'L'
+                : 'P')
         : 'P';
     return logic.qrCodeFor(p, c.li, c.rx, eye, liL: c.liL ?? c.li, uL: c.rxL);
   }
@@ -2052,41 +2311,38 @@ class AppState extends ChangeNotifier {
   }
 
   /// Which tab is lit for a screen (`TABFOR`). Null hides the tab bar.
+  /// 'brand' (the brand detail page) is deliberately not listed: it opens as its own page, under no tab.
   static String? tabFor(String sc) => switch (sc) {
-    'home' => 'home',
-    'shop' ||
-    'lenstype' ||
-    'brands' ||
-    'brand' ||
-    'stockpick' ||
-    'stocktype' ||
-    'search' ||
-    'wishlist' ||
-    'rxhome' ||
-    'rangetype' ||
-    'rangelist' ||
-    'rangeprods' => 'shop',
-    'orders' => 'orders',
-    'account' ||
-    'preorder' ||
-    'posters' ||
-    'videos' ||
-    'certs' ||
-    'pricelist' ||
-    'ledger' ||
-    'transactions' ||
-    'invoices' ||
-    'salesreport' ||
-    'analysis' ||
-    'stafflogins' ||
-    'weblogin' ||
-    'language' ||
-    'contact' ||
-    'faq' ||
-    'about' ||
-    'terms' => 'account',
-    _ => null,
-  };
+        'home' => 'home',
+        'shop' || 'brands' || 'stockpick' || 'stocktype' || 'search' || 'wishlist' || 'rxhome' || 'rangetype' || 'rangelist' || 'rangeprods' => 'shop',
+        'orders' => 'orders',
+        'account' ||
+        'preorder' ||
+        'certs' ||
+        'pricelist' ||
+        'ledger' ||
+        'transactions' ||
+        'invoices' ||
+        'salesreport' ||
+        'analysis' ||
+        'stafflogins' ||
+        'weblogin' ||
+        'language' ||
+        'contact' ||
+        'faq' ||
+        'about' ||
+        'terms' =>
+          'account',
+        _ => null,
+      };
+
+  /// The tab lit right now. A Shop-group screen (a brand, Brands, Search, ...) that was opened from Home keeps Home
+  /// lit instead of jumping to Shop; opening it from the Shop tab keeps Shop lit.
+  String? get activeTab {
+    final t = tabFor(screen);
+    if (t == 'shop' && hist.isNotEmpty && hist.first == 'home') return 'home';
+    return t;
+  }
 
   void tab(String t) {
     hist = [];

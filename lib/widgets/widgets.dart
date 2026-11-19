@@ -35,7 +35,7 @@ class HeadRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Expanded(child: Text(text, style: AppText.h(context.c))),
-        ?right,
+        if (right != null) right!,
       ],
     ),
   );
@@ -543,7 +543,7 @@ class RowCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ?titleWidget,
+                if (titleWidget != null) titleWidget!,
                 if (title != null)
                   Text(
                     title!,
@@ -623,7 +623,7 @@ class PriceLineText extends StatelessWidget {
                 ],
               ),
             ),
-          ?tag,
+          if (tag != null) tag!,
         ],
       ),
     );
@@ -1163,7 +1163,7 @@ class RadioCard extends StatelessWidget {
         child: Row(
           children: [
             Expanded(child: child),
-            ?trailing,
+            if (trailing != null) trailing!,
             if (trailing == null && showDot) RadioDot(on: on, size: 18, onWidth: 5),
           ],
         ),

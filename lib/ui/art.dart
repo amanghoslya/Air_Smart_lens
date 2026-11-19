@@ -58,6 +58,20 @@ class ProductArt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
+    final url = p.imageUrl?.trim();
+    if (url != null && url.isNotEmpty) {
+      return Image.network(
+        url,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        excludeFromSemantics: true,
+        errorBuilder: (_, __, ___) => FractionallySizedBox(
+          widthFactor: lensFraction,
+          child: LensArt(tint: coatTint(p)),
+        ),
+      );
+    }
     final e = envOf(p, li);
     if (e != null && s.data.envelopes.contains(e)) {
       return Image.asset('assets/images/envelopes/$e.jpg', fit: BoxFit.cover, width: double.infinity, height: double.infinity, excludeFromSemantics: true);

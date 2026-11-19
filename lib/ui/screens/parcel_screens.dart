@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:air_smart_lens/Screens/Home_Screen/Provider/catalogProvider.dart';
+import 'package:air_smart_lens/Screens/Home_Screen/Provider/productDetailsProvider.dart';
+import 'package:air_smart_lens/core/Data/responseModel/catalogResModel.dart' as catalog_res;
+import 'package:air_smart_lens/core/Data/responseModel/productDetailsResModel.dart';
 
 import '../../core/brands.dart';
 import '../../core/format.dart';
@@ -7,6 +12,7 @@ import '../../core/quantity.dart';
 import '../../state/app_scope.dart';
 import '../../state/app_state.dart';
 import '../art.dart';
+import '../lens3d.dart' show LoaderLens;
 import '../parts.dart';
 import '../power_grid.dart';
 import '../icons.dart';
@@ -36,34 +42,29 @@ ScreenView rxScreen(BuildContext context, AppState s) {
   final code = lkR != null
       ? rg(lkR.range)
       : mode == 'rx'
-      ? 'Outside stocked ranges'
-      : mode == 'mto'
-      ? 'Made to order'
-      : s.logic.rxCode(info.m, s.rx, l);
+          ? 'Outside stocked ranges'
+          : mode == 'mto'
+              ? 'Made to order'
+              : s.logic.rxCode(info.m, s.rx, l);
   final tl = typeName[lt]!.toLowerCase();
   final note = lkR != null
       ? (fxm != null
-            ? '${s.stock.stockOf(fx!, lk!.li!).state == 'in' ? 'Available' : StockStatus.labels[s.stock.stockOf(fx, lk.li!).state]} in this range. Only its powers can be chosen: ${lkR.read}.'
-            : 'This power is not in ${rg(lkR.range)}.')
+          ? '${s.stock.stockOf(fx!, lk!.li!).state == 'in' ? 'Available' : StockStatus.labels[s.stock.stockOf(fx, lk.li!).state]} in this range. Only its powers can be chosen: ${lkR.read}.'
+          : 'This power is not in ${rg(lkR.range)}.')
       : fx != null
-      ? (fxm != null
-            ? '${shortName(fx)} ${fxm.mto
-                  ? 'is made to order in this power'
-                  : fxm.diff
-                  ? 'has the nearest power, ${s.diffText(fxm, lt)}'
-                  : 'stocks this power'}.'
-            : '${shortName(fx)} does not stock this power. Change the power, or see other lenses.')
-      : switch (mode) {
-          'ok' =>
-            '${info.nEx} lens${info.nEx == 1 ? '' : 'es'} stock${info.nEx == 1 ? 's' : ''} this power.${info.nNear > 0 ? ' ${info.nNear} more in a nearby power.' : ''}',
-          'near' => 'No lens has exactly this power. ${info.nNear} ha${info.nNear == 1 ? 's' : 've'} one a step (0.25) away.',
-          'mto' => 'No stocked lens has this power; the RX progressive can be made to order.',
-          'listed' => 'Lenses list this power but none can be ordered right now.',
-          _ =>
-            lt == LensType.prog
-                ? 'No lens has this power. It can be sent as an RX request; our staff will check it with the lab and call with the price and date.'
-                : 'No $tl lens is stocked in this power, and $tl lenses are not made to order.',
-        };
+          ? (fxm != null
+              ? '${shortName(fx)} ${fxm.mto ? 'is made to order in this power' : fxm.diff ? 'has the nearest power, ${s.diffText(fxm, lt)}' : 'stocks this power'}.'
+              : '${shortName(fx)} does not stock this power. Change the power, or see other lenses.')
+          : switch (mode) {
+              'ok' =>
+                '${info.nEx} lens${info.nEx == 1 ? '' : 'es'} stock${info.nEx == 1 ? 's' : ''} this power.${info.nNear > 0 ? ' ${info.nNear} more in a nearby power.' : ''}',
+              'near' => 'No lens has exactly this power. ${info.nNear} ha${info.nNear == 1 ? 's' : 've'} one a step (0.25) away.',
+              'mto' => 'No stocked lens has this power; the RX progressive can be made to order.',
+              'listed' => 'Lenses list this power but none can be ordered right now.',
+              _ => lt == LensType.prog
+                  ? 'No lens has this power. It can be sent as an RX request; our staff will check it with the lab and call with the price and date.'
+                  : 'No $tl lens is stocked in this power, and $tl lenses are not made to order.',
+            };
   final rxm = s.rxMode;
   final qa = fx != null && !rxm;
   final ch = qa && lk != null && s.pview == 'chart';
@@ -80,11 +81,11 @@ ScreenView rxScreen(BuildContext context, AppState s) {
   String pTxt(CartLine x) => x.rxL != null
       ? 'R ${powerTxt(x.rx, lt)} · L ${powerTxt(x.rxL!, lt)}'
       : (x.qR != 0 && x.qL == 0
-                ? 'R '
-                : x.qR == 0 && x.qL != 0
-                ? 'L '
-                : '') +
-            powerTxt(x.rx, lt);
+              ? 'R '
+              : x.qR == 0 && x.qL != 0
+                  ? 'L '
+                  : '') +
+          powerTxt(x.rx, lt);
   final unit = qa && fxm != null && !fxm.mto ? s.logic.pairPrice(fxm.p, fxm.li, fxm.liL) : null;
 
   // the power table: only for an RX progressive with a different left eye
@@ -95,33 +96,33 @@ ScreenView rxScreen(BuildContext context, AppState s) {
   }
 
   Widget tRow(String title, String sub, String cellEye) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 3),
-    child: Row(
-      children: [
-        SizedBox(
-          width: 64,
-          child: Text.rich(
-            TextSpan(
-              children: [
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 64,
+              child: Text.rich(
                 TextSpan(
-                  text: '$title\n',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: c.ink),
+                  children: [
+                    TextSpan(
+                      text: '$title\n',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: c.ink),
+                    ),
+                    TextSpan(
+                      text: sub,
+                      style: TextStyle(fontSize: 12, color: c.ink2),
+                    ),
+                  ],
                 ),
-                TextSpan(
-                  text: sub,
-                  style: TextStyle(fontSize: 12, color: c.ink2),
-                ),
-              ],
+              ),
             ),
-          ),
+            for (final f in cols)
+              Expanded(
+                child: Padding(padding: const EdgeInsets.symmetric(horizontal: 2), child: cell(cellEye, f)),
+              ),
+          ],
         ),
-        for (final f in cols)
-          Expanded(
-            child: Padding(padding: const EdgeInsets.symmetric(horizontal: 2), child: cell(cellEye, f)),
-          ),
-      ],
-    ),
-  );
+      );
   final showTable = rxm && lt == LensType.prog && pe == 'P';
   final table = Padding(
     padding: const EdgeInsets.only(top: 14, bottom: 4),
@@ -152,16 +153,16 @@ ScreenView rxScreen(BuildContext context, AppState s) {
   final codeKind = mode == 'near' || mode == 'mto'
       ? 'warn'
       : mode == 'rx'
-      ? 'bad'
-      : '';
+          ? 'bad'
+          : '';
   final wished = lk != null && lk.li != null && s.wishR.contains('${fx!.id}:${lk.li}');
   final blocks = <Widget>[
     Hd(
       rxm
           ? 'RX progressive'
           : qa
-          ? 'Add powers'
-          : 'Parcel order',
+              ? 'Add powers'
+              : 'Parcel order',
     ),
     if (rxm) const Muted('Progressive · made at the lab', align: TextAlign.center, margin: EdgeInsets.only(bottom: 10)),
     if (fx != null)
@@ -247,10 +248,10 @@ ScreenView rxScreen(BuildContext context, AppState s) {
           kind: lkR != null
               ? (fxm != null ? '' : 'bad')
               : mode == 'rx' || (fx != null && fxm == null)
-              ? 'bad'
-              : mode == 'near'
-              ? 'warn'
-              : '',
+                  ? 'bad'
+                  : mode == 'near'
+                      ? 'warn'
+                      : '',
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -671,113 +672,280 @@ class CodeBadge extends StatelessWidget {
 // ---------------------------------------------------------------- options
 
 ScreenView optionsScreen(BuildContext context, AppState s) {
-  final c = context.c;
   final all = s.filtered().all;
   final pool = all.where((x) => s.only == null || x.p.id == s.only).toList();
-  final idxs = pool.map((x) => x.p.index).toSet().toList()..sort();
-  final coatsList = <String>[];
-  for (final x in pool) {
-    final k = coatKey(x.p);
-    if (!coatsList.contains(k)) coatsList.add(k);
-  }
-  final after = pool.where((x) => (s.optIdx.isEmpty || s.optIdx.contains(x.p.index)) && (s.optCoat.isEmpty || s.optCoat.contains(coatKey(x.p)))).toList();
-  int? minP(String k) {
-    final ps = pool.where((x) => coatKey(x.p) == k).map((x) => s.logic.pairPrice(x.p, x.li, x.liL)).whereType<int>().toList();
-    return ps.isEmpty ? null : ps.reduce((a, b) => a < b ? a : b);
-  }
 
-  final n = idxs.length.clamp(1, 3);
   return ScreenView([
     const Hd('Lens options', right: BagBtn()),
-    const HeadRow('Lens index', top: 4),
-    LayoutBuilder(
-      builder: (context, cons) {
-        final w = (cons.maxWidth - 8 * (n - 1)) / n;
-        return Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final i in idxs)
-              GestureDetector(
-                onTap: () => s.toggleIdx(i),
-                child: Container(
-                  width: w,
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-                  decoration: BoxDecoration(
-                    color: c.card,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: s.optIdx.contains(i) ? c.ink : c.line, width: s.optIdx.contains(i) ? 2 : 1),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        i,
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: c.ink, fontFeatures: kTabular),
+    ApiLensOptionsBody(s: s, pool: pool),
+  ], foot: Expanded(child: ApiLensOptionsFooter(s: s)));
+}
+
+class ApiLensOptionsFooter extends ConsumerWidget {
+  final AppState s;
+  const ApiLensOptionsFooter({super.key, required this.s});
+
+  static LensFilterQuery buildQuery(AppState s) => (
+        appLensType: s.lens,
+        indicesKey: buildFilterKey(s.optIdx),
+        coatingsKey: buildFilterKey(s.optCoat),
+      );
+
+  static int _apiTotalCount(catalog_res.CatalogResModel res) {
+    final products = res.data?.list ?? const <catalog_res.ListElement>[];
+    final total = res.data?.total;
+    if (total != null && (total > 0 || products.isEmpty)) return total;
+    return products.length;
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final baseAsync = ref.watch(lensOptionsProvider(s.lens));
+    final hasFilter = s.optIdx.isNotEmpty || s.optCoat.isNotEmpty;
+    final query = buildQuery(s);
+
+    // Do not show button before initial lens options API data arrives
+    if (baseAsync.isLoading) {
+      return const SizedBox.shrink();
+    }
+
+    // Whenever a Lens Index or Coating is selected, call the live filtered Catalog API
+    final activeAsync = hasFilter ? ref.watch(filteredLensCatalogProvider(query)) : baseAsync;
+
+    void onPressShow() {
+      // Trigger live Catalog API call with selected lens type, index & coating on button tap
+      ref.invalidate(filteredLensCatalogProvider(query));
+      s.toResults();
+    }
+
+    return activeAsync.when(
+      loading: () => const Row(children: [Btn('Loading...', onTap: null)]),
+      error: (_, __) => Row(children: [Btn('Show results', onTap: onPressShow)]),
+      data: (res) {
+        final count = _apiTotalCount(res);
+        final label = 'Show $count lens${count == 1 ? '' : 'es'}';
+        return Row(children: [Btn(label, onTap: onPressShow)]);
+      },
+    );
+  }
+}
+
+class ApiLensOptionsBody extends ConsumerWidget {
+  final AppState s;
+  final List<Match> pool;
+  const ApiLensOptionsBody({super.key, required this.s, required this.pool});
+
+  static String _formatIndex(num v) => v.toStringAsFixed(2);
+
+  static String _resolveCoatKey(catalog_res.CoatingElement item) => resolveApiCoatingKey(item);
+
+  static Color _parseCoatColor(String? hex, String key) {
+    if (hex != null && hex.trim().isNotEmpty) {
+      var clean = hex.trim().replaceFirst('#', '').replaceFirst('0x', '').replaceFirst('0X', '');
+      if (clean.length == 6) clean = 'FF$clean';
+      final parsed = int.tryParse(clean, radix: 16);
+      if (parsed != null) return Color(parsed);
+    }
+    return Color(coatColorHex[key] ?? 0xFFC9CFCC);
+  }
+
+  Widget _buildContent(BuildContext context, catalog_res.CatalogResModel? res) {
+    final c = context.c;
+    final products = res?.data?.list ?? const <catalog_res.ListElement>[];
+
+    // 1. Build Lens Index options (API facets -> API list fallback -> local pool fallback)
+    final indexItems = <({String key, String label})>[];
+    final seenIdx = <String>{};
+
+    final rawApiIndices = (res?.data?.facets?.indices ?? const <catalog_res.Index>[]).where((e) => e.index != null).toList()
+      ..sort((a, b) => a.index!.compareTo(b.index!));
+
+    if (rawApiIndices.isNotEmpty) {
+      for (final item in rawApiIndices) {
+        final key = _formatIndex(item.index!);
+        if (seenIdx.add(key)) {
+          final label = (item.label?.trim().isNotEmpty == true) ? item.label!.trim() : (indexNames[key] ?? '');
+          indexItems.add((key: key, label: label));
+        }
+      }
+    } else if (products.isNotEmpty) {
+      final derived = products.map((p) => p.index).whereType<num>().toSet().toList()..sort();
+      for (final v in derived) {
+        final key = _formatIndex(v);
+        if (seenIdx.add(key)) {
+          indexItems.add((key: key, label: indexNames[key] ?? ''));
+        }
+      }
+    } else {
+      final localIdxs = pool.map((x) => x.p.index).toSet().toList()..sort();
+      for (final i in localIdxs) {
+        if (seenIdx.add(i)) {
+          indexItems.add((key: i, label: indexNames[i] ?? ''));
+        }
+      }
+    }
+
+    // 2. Build Coating options (API facets -> API list fallback -> local pool fallback)
+    final coatItems = <({String key, String name, Color color})>[];
+    final seenCoat = <String>{};
+
+    final rawApiCoatings = res?.data?.facets?.coatings ?? const <catalog_res.CoatingElement>[];
+
+    if (rawApiCoatings.isNotEmpty) {
+      for (final item in rawApiCoatings) {
+        final key = _resolveCoatKey(item);
+        if (seenCoat.add(key)) {
+          final name = (item.name?.trim().isNotEmpty == true) ? item.name!.trim() : coatName(key);
+          final color = _parseCoatColor(item.color, key);
+          coatItems.add((key: key, name: name, color: color));
+        }
+      }
+    } else if (products.isNotEmpty) {
+      for (final p in products) {
+        final raw = (p.coating ?? '').trim();
+        if (raw.isEmpty) continue;
+        final fake = catalog_res.CoatingElement(name: raw, code: raw);
+        final key = _resolveCoatKey(fake);
+        if (seenCoat.add(key)) {
+          coatItems.add((key: key, name: coatName(key), color: _parseCoatColor(null, key)));
+        }
+      }
+    } else {
+      for (final x in pool) {
+        final k = coatKey(x.p);
+        if (seenCoat.add(k)) {
+          coatItems.add((key: k, name: coatName(k), color: Color(coatColorHex[k] ?? 0xFFC9CFCC)));
+        }
+      }
+    }
+
+    final n = indexItems.length.clamp(1, 3);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const HeadRow('Lens index', top: 4),
+        if (indexItems.isEmpty)
+          const Muted('No lens index available for this lens.', small: false)
+        else
+          LayoutBuilder(
+            builder: (context, cons) {
+              final w = (cons.maxWidth - 8 * (n - 1)) / n;
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final item in indexItems)
+                    GestureDetector(
+                      onTap: () => s.toggleIdx(item.key),
+                      child: Container(
+                        width: w,
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+                        decoration: BoxDecoration(
+                          color: c.card,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: s.optIdx.contains(item.key) ? c.ink : c.line, width: s.optIdx.contains(item.key) ? 2 : 1),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              item.key,
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: c.ink, fontFeatures: kTabular),
+                            ),
+                            Text(
+                              item.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 12, color: c.ink2),
+                            ),
+                          ],
+                        ),
                       ),
-                      Text(indexNames[i] ?? '', style: TextStyle(fontSize: 12, color: c.ink2)),
-                    ],
-                  ),
+                    ),
+                ],
+              );
+            },
+          ),
+        const HeadRow('Coating'),
+        if (coatItems.isEmpty)
+          const Muted('No stocked lens for this power.', small: false)
+        else
+          Gap(gap: 8, [
+            for (final item in coatItems)
+              RadioCard(
+                on: s.optCoat.contains(item.key),
+                onTap: () => s.toggleCoat(item.key),
+                showDot: false,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(5),
+                        border: Border.all(color: s.optCoat.contains(item.key) ? c.ink : c.mute, width: 1.5),
+                        color: s.optCoat.contains(item.key) ? c.ink : Colors.transparent,
+                      ),
+                      alignment: Alignment.center,
+                      child: s.optCoat.contains(item.key) ? Text('✓', style: TextStyle(fontSize: 12, height: 1, color: c.card)) : null,
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(shape: BoxShape.circle, color: item.color),
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(item.name, style: TextStyle(color: c.ink)),
+                    ),
+                  ],
                 ),
               ),
-          ],
-        );
-      },
-    ),
-    const HeadRow('Coating'),
-    if (coatsList.isEmpty)
-      Muted('No stocked lens for this power.', small: false)
-    else
-      Gap(gap: 8, [
-        for (final k in coatsList)
-          RadioCard(
-            on: s.optCoat.contains(k),
-            onTap: () => s.toggleCoat(k),
-            trailing: Text(s.showPrice && minP(k) != null ? 'from ${money(minP(k)!)}' : '', style: TextStyle(fontSize: 12, color: c.ink2)),
-            child: Row(
-              children: [
-                Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(5),
-                    border: Border.all(color: s.optCoat.contains(k) ? c.ink : c.mute, width: 1.5),
-                    color: s.optCoat.contains(k) ? c.ink : Colors.transparent,
-                  ),
-                  alignment: Alignment.center,
-                  child: s.optCoat.contains(k) ? Text('✓', style: TextStyle(fontSize: 12, height: 1, color: c.card)) : null,
-                ),
-                const SizedBox(width: 10),
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: Color(coatColorHex[k] ?? 0xFFC9CFCC)),
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Text(coatName(k), style: TextStyle(color: c.ink)),
-                ),
-              ],
-            ),
-          ),
-      ]),
-    const Muted('Leave everything unticked to see every lens for this power.', margin: EdgeInsets.only(top: 12)),
-  ], foot: Btn(after.isNotEmpty ? 'Show ${after.length} lens${after.length == 1 ? '' : 'es'}' : 'Show results', onTap: s.toResults));
+          ]),
+        const Muted('Leave everything unticked to see every lens for this power.', margin: EdgeInsets.only(top: 12)),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncOptions = ref.watch(lensOptionsProvider(s.lens));
+
+    return asyncOptions.when(
+      loading: () => SizedBox(
+        height: MediaQuery.of(context).size.height * 0.55,
+        child: const Center(
+          child: LoaderLens(size: 96),
+        ),
+      ),
+      error: (_, __) => _buildContent(context, null),
+      data: (res) => _buildContent(context, res),
+    );
+  }
 }
 
 // ---------------------------------------------------------------- results
 
-Widget matchRow(BuildContext context, AppState s, Match x) {
+Widget matchRow(BuildContext context, AppState s, Match x, {VoidCallback? onTap}) {
   final p = x.p;
   var st = s.logic.pairStock(x);
   if (!x.mto && st.state == 'in') st = s.logic.powStock(x); // 30 Oct: the status of the exact power
   final ok = !const ['na', 'soon', 'zero'].contains(st.state);
   final price = s.logic.pairPrice(p, x.li, x.liL);
+  final rangeTxt = x.mto ? 'any axis, 10° steps' : rg(p.lines[x.li].range);
+  final subParts = <String>[
+    typeName[p.ptype] ?? p.ptype,
+    if (p.index.isNotEmpty) '${p.index} index',
+    if (rangeTxt.isNotEmpty) rangeTxt,
+  ];
   return RowCard(
     dim: !ok,
-    onTap: () => s.openMatch(x.mi),
+    onTap: onTap ?? () => s.openMatch(x.mi),
     thumb: ThumbBox(child: ProductArt(p, li: x.li)),
     title: shortName(p),
-    sub: '${typeName[p.ptype]} · ${p.index} index · ${x.mto ? 'any axis, 10° steps' : rg(p.lines[x.li].range)}',
+    sub: subParts.join(' · '),
     extra: [
       PriceLineText(price: price != null && s.showPrice ? money(price) : '', suffix: price != null && s.showPrice ? ' / pair' : '', tag: StockTag(st)),
       if (x.diff) const FlagTag('Different power: check before ordering'),
@@ -787,16 +955,9 @@ Widget matchRow(BuildContext context, AppState s, Match x) {
 }
 
 ScreenView resultsScreen(BuildContext context, AppState s) {
-  final c = context.c;
-  final f = s.filtered();
-  final all = f.all, list = f.list;
   final lt = s.lens;
-  final ex = list.where((x) => !x.diff && !x.mto).toList();
-  final near = list.where((x) => x.diff).toList();
-  final mto = list.where((x) => x.mto).toList();
   final sub =
       '${s.rxL != null ? 'R ${powerTxt(s.rx, lt)} · L ${powerTxt(s.rxL!, lt)}' : 'R and L ${powerTxt(s.rx, lt)}'} · ${qWord(qKind(lt, s.peye), s.aq, unit: s.unit)}';
-  final nf = s.optIdx.length + s.optCoat.length + (s.only != null ? 1 : 0);
   final tl = typeName[lt]!;
   return ScreenView([
     Hd(tl, right: const BagBtn()),
@@ -804,29 +965,18 @@ ScreenView resultsScreen(BuildContext context, AppState s) {
       offset: const Offset(0, -6),
       child: Muted(sub, align: TextAlign.center),
     ),
-    Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 6),
-      child: Row(
-        children: [
-          Expanded(child: Text('${list.length} of ${all.length} lens${all.length == 1 ? '' : 'es'}', style: AppText.small(c))),
-          if (nf > 0) ...[LinkBtn('Clear filters', onTap: s.clearFilters), Text(' · ', style: AppText.small(c))],
-          LinkBtn('Filter${nf > 0 ? ' ($nf)' : ''}', onTap: s.toOptions),
-        ],
-      ),
-    ),
-    if (all.isNotEmpty) ...[
-      Gap([for (final x in ex) matchRow(context, s, x)]),
-      if (near.isNotEmpty) ...[
-        const Sec('Nearest stocked power'),
-        Gap([for (final x in near) matchRow(context, s, x)]),
-      ],
-      if (mto.isNotEmpty) ...[
-        const Sec('Made to order'),
-        Gap([for (final x in mto) matchRow(context, s, x)]),
-      ],
-      if (list.isEmpty) const EmptyState('Nothing with these options', 'Clear the filters to see every lens.'),
-    ] else if (lt == LensType.prog)
-      CardBox(
+    ApiResultsBody(s: s),
+  ]);
+}
+
+class ApiResultsBody extends ConsumerWidget {
+  final AppState s;
+  const ApiResultsBody({super.key, required this.s});
+
+  Widget _buildEmptyAll(BuildContext context, String lt, String tl) {
+    final c = context.c;
+    if (lt == LensType.prog) {
+      return CardBox(
         margin: const EdgeInsets.only(top: 10),
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -847,41 +997,136 @@ ScreenView resultsScreen(BuildContext context, AppState s) {
             Row(children: [Btn('Add RX request to cart', onTap: s.addRxRequest)]),
           ],
         ),
-      )
-    else
-      CardBox(
-        margin: const EdgeInsets.only(top: 10),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            eyebrow(context, 'Not stocked'),
-            Padding(
-              padding: const EdgeInsets.only(top: 6, bottom: 10),
-              child: Text(
-                'No ${tl.toLowerCase()} lens is stocked in this power.',
-                style: TextStyle(fontWeight: FontWeight.w600, color: c.ink),
-              ),
+      );
+    }
+    return CardBox(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          eyebrow(context, 'Not stocked'),
+          Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 10),
+            child: Text(
+              'No ${tl.toLowerCase()} lens is stocked in this power.',
+              style: TextStyle(fontWeight: FontWeight.w600, color: c.ink),
             ),
-            Muted('$tl lenses are not made to order. Try the nearest power, or call the order desk.', margin: const EdgeInsets.only(bottom: 14)),
-            Row(children: [Btn('Change the power', ghost: true, onTap: s.back)]),
+          ),
+          Muted('$tl lenses are not made to order. Try the nearest power, or call the order desk.', margin: const EdgeInsets.only(bottom: 14)),
+          Row(children: [Btn('Change the power', ghost: true, onTap: s.back)]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocalFallback(BuildContext context) {
+    final c = context.c;
+    final f = s.filtered();
+    final all = f.all, list = f.list;
+    final lt = s.lens;
+    final tl = typeName[lt]!;
+    final ex = list.where((x) => !x.diff && !x.mto).toList();
+    final near = list.where((x) => x.diff).toList();
+    final mto = list.where((x) => x.mto).toList();
+    final nf = s.optIdx.length + s.optCoat.length + (s.only != null ? 1 : 0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 6),
+          child: Row(
+            children: [
+              Expanded(child: Text('${list.length} of ${all.length} lens${all.length == 1 ? '' : 'es'}', style: AppText.small(c))),
+              if (nf > 0) ...[LinkBtn('Clear filters', onTap: s.clearFilters), Text(' · ', style: AppText.small(c))],
+              LinkBtn('Filter${nf > 0 ? ' ($nf)' : ''}', onTap: s.toOptions),
+            ],
+          ),
+        ),
+        if (all.isNotEmpty) ...[
+          Gap([for (final x in ex) matchRow(context, s, x)]),
+          if (near.isNotEmpty) ...[
+            const Sec('Nearest stocked power'),
+            Gap([for (final x in near) matchRow(context, s, x)]),
           ],
+          if (mto.isNotEmpty) ...[
+            const Sec('Made to order'),
+            Gap([for (final x in mto) matchRow(context, s, x)]),
+          ],
+          if (list.isEmpty) const EmptyState('Nothing with these options', 'Clear the filters to see every lens.'),
+        ] else
+          _buildEmptyAll(context, lt, tl),
+      ],
+    );
+  }
+
+  Widget _buildApiList(BuildContext context, catalog_res.CatalogResModel res, {int? baseTotal}) {
+    final c = context.c;
+    final lt = s.lens;
+    final tl = typeName[lt]!;
+    final filteredApi = res.data?.list ?? const <catalog_res.ListElement>[];
+    final totalAll = baseTotal ?? ((res.data?.total != null && (res.data!.total! > 0 || filteredApi.isEmpty)) ? res.data!.total! : filteredApi.length);
+    final apiMatches = [for (final el in filteredApi) s.apiMatchFor(el)];
+    final ex = apiMatches.where((x) => !x.mto).toList();
+    final mto = apiMatches.where((x) => x.mto).toList();
+    final nf = s.optIdx.length + s.optCoat.length + (s.only != null ? 1 : 0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 6),
+          child: Row(
+            children: [
+              Expanded(child: Text('${apiMatches.length} of $totalAll lens${totalAll == 1 ? '' : 'es'}', style: AppText.small(c))),
+              if (nf > 0) ...[LinkBtn('Clear filters', onTap: s.clearFilters), Text(' · ', style: AppText.small(c))],
+              LinkBtn('Filter${nf > 0 ? ' ($nf)' : ''}', onTap: s.toOptions),
+            ],
+          ),
+        ),
+        if (apiMatches.isNotEmpty) ...[
+          if (ex.isNotEmpty) Gap([for (final x in ex) matchRow(context, s, x, onTap: () => s.openApiMatch(x))]),
+          if (mto.isNotEmpty) ...[
+            const Sec('Made to order'),
+            Gap([for (final x in mto) matchRow(context, s, x, onTap: () => s.openApiMatch(x))]),
+          ],
+        ] else if (nf > 0)
+          const EmptyState('Nothing with these options', 'Clear the filters to see every lens.')
+        else
+          _buildEmptyAll(context, lt, tl),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final query = ApiLensOptionsFooter.buildQuery(s);
+    final asyncFiltered = ref.watch(filteredLensCatalogProvider(query));
+    final baseTotal = ref.watch(lensOptionsProvider(s.lens)).valueOrNull?.data?.total;
+
+    return asyncFiltered.when(
+      loading: () => SizedBox(
+        height: MediaQuery.of(context).size.height * 0.55,
+        child: const Center(
+          child: LoaderLens(size: 96),
         ),
       ),
-  ]);
+      error: (_, __) => _buildLocalFallback(context),
+      data: (res) => _buildApiList(context, res, baseTotal: baseTotal),
+    );
+  }
 }
 
 // ---------------------------------------------------------------- product
 
-ScreenView productScreen(BuildContext context, AppState s) {
+Widget buildProductBodyWidget(BuildContext context, AppState s, Product p, Match? m, ProdView pv) {
   final c = context.c;
-  final pv = s.prod!;
-  final m = pv.mi != null && pv.mi! < s.matches.length ? s.matches[pv.mi!] : null;
-  final p = m?.p ?? s.product(pv.pid ?? s.data.meta.favs[0]);
   final wished = s.wish.contains(p.id);
   final feats = featIcons(p);
   final env = envOf(p, m?.li);
-  final hasPhoto = env != null && s.data.envelopes.contains(env);
+  final apiImg = p.imageUrl?.trim().isNotEmpty == true ? p.imageUrl!.trim() : null;
+  final hasPhoto = apiImg != null || (env != null && s.data.envelopes.contains(env));
 
   final head = SizedBox(
     height: hasPhoto ? 270 : 250,
@@ -900,7 +1145,14 @@ ScreenView productScreen(BuildContext context, AppState s) {
                           boxShadow: [BoxShadow(color: c.shade, blurRadius: 24, offset: const Offset(0, 10))],
                         ),
                         clipBehavior: Clip.antiAlias,
-                        child: Image.asset('assets/images/envelopes/$env.jpg', fit: BoxFit.contain, semanticLabel: '${shortName(p)} packaging'),
+                        child: apiImg != null
+                            ? Image.network(
+                                apiImg,
+                                fit: BoxFit.contain,
+                                semanticLabel: '${shortName(p)} packaging',
+                                errorBuilder: (_, __, ___) => SizedBox(width: 150, child: LensArt(tint: coatTint(p))),
+                              )
+                            : Image.asset('assets/images/envelopes/$env.jpg', fit: BoxFit.contain, semanticLabel: '${shortName(p)} packaging'),
                       ),
                     )
                   : SizedBox(width: 150, child: LensArt(tint: coatTint(p))),
@@ -919,9 +1171,9 @@ ScreenView productScreen(BuildContext context, AppState s) {
 
   int? price;
   final body = <Widget>[];
-  Widget? foot;
   if (m != null) {
-    final l = p.lines[m.li], lL = p.lines[m.liL];
+    final l = p.lines.isNotEmpty ? p.lines[m.li.clamp(0, p.lines.length - 1)] : PriceLine(range: '', add: '', axis: '', status: 'ok', read: '', boxes: []);
+    final lL = p.lines.isNotEmpty ? p.lines[m.liL.clamp(0, p.lines.length - 1)] : l;
     var st = s.logic.pairStock(m);
     price = s.logic.pairPrice(p, m.li, m.liL);
     final ps = s.logic.powStock(m);
@@ -933,11 +1185,11 @@ ScreenView productScreen(BuildContext context, AppState s) {
     final yourPower = m.uL != null
         ? 'R ${powerTxt(m.uR, p.ptype)}\nL ${powerTxt(m.uL!, p.ptype)}'
         : (p.ptype == LensType.prog && s.peye == 'R'
-                  ? 'R '
-                  : p.ptype == LensType.prog && s.peye == 'L'
-                  ? 'L '
-                  : '') +
-              powerTxt(m.uR, p.ptype);
+                ? 'R '
+                : p.ptype == LensType.prog && s.peye == 'L'
+                    ? 'L '
+                    : '') +
+            powerTxt(m.uR, p.ptype);
     body.addAll([
       Facts([
         ('Your power', Text(yourPower, textAlign: TextAlign.right)),
@@ -947,8 +1199,8 @@ ScreenView productScreen(BuildContext context, AppState s) {
             m.mto
                 ? 'Made to order'
                 : m.liL != m.li
-                ? 'R ${rg(l.range)} · L ${rg(lL.range)}'
-                : rg(l.range),
+                    ? 'R ${rg(l.range)} · L ${rg(lL.range)}'
+                    : rg(l.range),
             textAlign: TextAlign.right,
           ),
         ),
@@ -1009,13 +1261,6 @@ ScreenView productScreen(BuildContext context, AppState s) {
       else
         NoteBox.text('${st.label}: this power cannot be ordered right now.', kind: 'bad'),
     ]);
-    foot = soP
-        ? Btn('Pre-order', onTap: s.addPreFromProduct)
-        : ok
-        ? Btn('Add to cart${s.showPrice && price != null ? ' · ${money(price * pairsOf(k, pv.n))}' : ''}', onTap: s.addToCart)
-        : naP
-        ? null
-        : Btn('Choose another lens', ghost: true, onTap: s.back);
   } else {
     price = s.logic.fromPrice(p);
     // 5 Nov: Order by power across all the lens's ranges
@@ -1080,7 +1325,7 @@ ScreenView productScreen(BuildContext context, AppState s) {
           alignment: Alignment.centerLeft,
           child: FavBtn(on: wished, onTap: () => s.toggleWish(p.id)),
         ),
-        Muted('${p.name}. ${titlecase(p.base)}.', margin: const EdgeInsets.only(top: 8)),
+        Muted(p.base.trim().isNotEmpty ? '${p.name}. ${titlecase(p.base)}.' : p.name, margin: const EdgeInsets.only(top: 8)),
         Padding(
           padding: const EdgeInsets.only(top: 16, bottom: 4),
           child: Row(
@@ -1117,19 +1362,139 @@ ScreenView productScreen(BuildContext context, AppState s) {
     ),
   );
 
-  return ScreenView([
-    Bleed(
-      child: Stack(
-        children: [
-          head,
-          Padding(
-            padding: EdgeInsets.only(top: (hasPhoto ? 270 : 250) - 18),
-            child: sheet,
-          ),
-        ],
+  return Stack(
+    children: [
+      head,
+      Padding(
+        padding: EdgeInsets.only(top: (hasPhoto ? 270 : 250) - 18),
+        child: sheet,
       ),
+    ],
+  );
+}
+
+Widget? buildProductFootWidget(BuildContext context, AppState s, Product p, Match? m, ProdView pv, {bool expand = true}) {
+  if (m == null) return null;
+  var st = s.logic.pairStock(m);
+  final price = s.logic.pairPrice(p, m.li, m.liL);
+  final ps = s.logic.powStock(m);
+  if (ps.state == 'zero' || ps.state == 'na' || (ps.low && st.state == 'in')) st = ps;
+  final naP = ps.state == 'na' && !m.mto;
+  final soP = st.state == 'zero' && !m.mto;
+  final ok = !const ['na', 'soon', 'zero'].contains(st.state) || soP;
+  final k = qKind(p.ptype, s.peye);
+
+  return soP
+      ? Btn('Pre-order', onTap: s.addPreFromProduct, expand: expand, minWidth: expand ? null : double.infinity)
+      : ok
+          ? Btn(
+              'Add to cart${s.showPrice && price != null ? ' · ${money(price * pairsOf(k, pv.n))}' : ''}',
+              onTap: s.addToCart,
+              expand: expand,
+              minWidth: expand ? null : double.infinity,
+            )
+          : naP
+              ? null
+              : Btn('Choose another lens', ghost: true, onTap: s.back, expand: expand, minWidth: expand ? null : double.infinity);
+}
+
+Widget _buildProductDetailsLoading(BuildContext context, AppState s) {
+  return SizedBox(
+    height: MediaQuery.of(context).size.height * 0.75,
+    child: Stack(
+      children: [
+        Positioned(
+          top: 6,
+          left: 14,
+          child: IconBtn(Ic.back, label: 'Back', onTap: s.back),
+        ),
+        const Positioned(top: 6, right: 14, child: BagBtn()),
+        const Center(child: LoaderLens(size: 96)),
+      ],
     ),
-  ], foot: foot);
+  );
+}
+
+class ApiProductView extends ConsumerWidget {
+  final AppState s;
+  final Product initialProduct;
+  const ApiProductView({super.key, required this.s, required this.initialProduct});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final apiId = initialProduct.apiId!;
+    final asyncDetails = ref.watch(productDetailsProvider(apiId));
+
+    return asyncDetails.when(
+      loading: () => _buildProductDetailsLoading(context, s),
+      error: (_, __) {
+        final pv = s.prod!;
+        final m = pv.mi != null && pv.mi! < s.matches.length ? s.matches[pv.mi!] : null;
+        return buildProductBodyWidget(context, s, initialProduct, m, pv);
+      },
+      data: (res) {
+        final d = res.data;
+        Product p = initialProduct;
+        if (d != null) {
+          p = s.updateProductFromDetails(d, existing: initialProduct);
+        }
+        final pv = s.prod!;
+        final m = pv.mi != null && pv.mi! < s.matches.length ? s.matches[pv.mi!] : null;
+        return buildProductBodyWidget(context, s, p, m, pv);
+      },
+    );
+  }
+}
+
+class ApiProductFooter extends ConsumerWidget {
+  final AppState s;
+  final Product initialProduct;
+  const ApiProductFooter({super.key, required this.s, required this.initialProduct});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final apiId = initialProduct.apiId!;
+    final asyncDetails = ref.watch(productDetailsProvider(apiId));
+
+    return asyncDetails.when(
+      loading: () => const Btn('Loading...', onTap: null, expand: false, minWidth: double.infinity),
+      error: (_, __) {
+        final pv = s.prod!;
+        final m = pv.mi != null && pv.mi! < s.matches.length ? s.matches[pv.mi!] : null;
+        return buildProductFootWidget(context, s, initialProduct, m, pv, expand: false) ?? const SizedBox.shrink();
+      },
+      data: (res) {
+        final d = res.data;
+        Product p = initialProduct;
+        if (d != null) {
+          p = s.updateProductFromDetails(d, existing: initialProduct);
+        }
+        final pv = s.prod!;
+        final m = pv.mi != null && pv.mi! < s.matches.length ? s.matches[pv.mi!] : null;
+        return buildProductFootWidget(context, s, p, m, pv, expand: false) ?? const SizedBox.shrink();
+      },
+    );
+  }
+}
+
+ScreenView productScreen(BuildContext context, AppState s) {
+  final pv = s.prod;
+  if (pv == null) return const ScreenView([Text('No product selected')]);
+  final m = pv.mi != null && pv.mi! < s.matches.length ? s.matches[pv.mi!] : null;
+  final p = m?.p ?? s.product(pv.pid ?? s.data.meta.favs[0]);
+
+  if (p.apiId != null && p.apiId!.trim().isNotEmpty) {
+    return ScreenView(
+      [
+        Bleed(child: ApiProductView(s: s, initialProduct: p)),
+      ],
+      foot: Expanded(child: ApiProductFooter(s: s, initialProduct: p)),
+    );
+  }
+
+  return ScreenView([
+    Bleed(child: buildProductBodyWidget(context, s, p, m, pv)),
+  ], foot: buildProductFootWidget(context, s, p, m, pv));
 }
 
 /// `.facts`: label on the left, value on the right, with a rule above.

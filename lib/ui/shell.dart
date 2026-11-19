@@ -33,7 +33,7 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final c = context.c;
-    final tab = AppState.tabFor(s.screen);
+    final tab = s.activeTab;
     final view = buildScreen(context, s);
 
     Widget body;

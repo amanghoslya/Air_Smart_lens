@@ -17,13 +17,13 @@ class PowerBlock {
   const PowerBlock({required this.s, required this.c, this.ss, this.cs, this.cross = false, this.ax});
 
   factory PowerBlock.fromJson(Map<String, dynamic> j) => PowerBlock(
-    s: (j['s'] as List).map((e) => (e as num).toDouble()).toList(),
-    c: (j['c'] as List).map((e) => (e as num).toDouble()).toList(),
-    ss: (j['ss'] as num?)?.toDouble(),
-    cs: (j['cs'] as num?)?.toDouble(),
-    cross: jsTruthy(j['cross']),
-    ax: (j['ax'] as num?)?.toInt(),
-  );
+        s: (j['s'] as List).map((e) => (e as num).toDouble()).toList(),
+        c: (j['c'] as List).map((e) => (e as num).toDouble()).toList(),
+        ss: (j['ss'] as num?)?.toDouble(),
+        cs: (j['cs'] as num?)?.toDouble(),
+        cross: jsTruthy(j['cross']),
+        ax: (j['ax'] as num?)?.toInt(),
+      );
 }
 
 /// One price line of a product: a power range with its price and diameter.
@@ -54,18 +54,18 @@ class PriceLine {
   });
 
   factory PriceLine.fromJson(Map<String, dynamic> j) => PriceLine(
-    dia: (j['dia'] as num?)?.toInt(),
-    range: (j['range'] ?? '').toString(),
-    add: (j['add'] ?? '').toString(),
-    axis: (j['axis'] ?? '').toString(),
-    price: (j['price'] as num?)?.toInt(),
-    status: (j['status'] ?? 'ok').toString(),
-    read: (j['read'] ?? '').toString(),
-    boxes: ((j['boxes'] as List?) ?? const []).map((b) => PowerBlock.fromJson(b as Map<String, dynamic>)).toList(),
-    sm: j['sm'] as String?,
-    env: j['env'] as String?,
-    est: j['est'] == true,
-  );
+        dia: (j['dia'] as num?)?.toInt(),
+        range: (j['range'] ?? '').toString(),
+        add: (j['add'] ?? '').toString(),
+        axis: (j['axis'] ?? '').toString(),
+        price: (j['price'] as num?)?.toInt(),
+        status: (j['status'] ?? 'ok').toString(),
+        read: (j['read'] ?? '').toString(),
+        boxes: ((j['boxes'] as List?) ?? const []).map((b) => PowerBlock.fromJson(b as Map<String, dynamic>)).toList(),
+        sm: j['sm'] as String?,
+        env: j['env'] as String?,
+        est: j['est'] == true,
+      );
 }
 
 /// Lens types. SV = single vision, KT = KT (bifocal), PROG = progressive.
@@ -92,6 +92,10 @@ class Product {
   final String variant; // e.g. 'Photo grey, Poly' (2 Nov price file); '' when none
   final String? env; // the product's first envelope photo
   final List<PriceLine> lines;
+  final String? apiId; // non-null when created from the live catalog API
+  final String? imageUrl; // product_image / brand_image URL from API
+  final bool? apiAvailable; // available flag from API
+  final bool apiNa; // n_a_flag from API
   const Product({
     required this.id,
     required this.brand,
@@ -107,24 +111,28 @@ class Product {
     this.variant = '',
     this.env,
     required this.lines,
+    this.apiId,
+    this.imageUrl,
+    this.apiAvailable,
+    this.apiNa = false,
   });
 
   factory Product.fromJson(Map<String, dynamic> j) => Product(
-    id: (j['id'] as num).toInt(),
-    brand: (j['brand'] ?? '').toString(),
-    name: (j['name'] ?? '').toString(),
-    coating: (j['coating'] ?? '').toString(),
-    base: (j['base'] ?? '').toString(),
-    ptype: (j['ptype'] ?? 'SV').toString(),
-    rx: jsTruthy(j['rx']),
-    index: (j['index'] ?? '').toString(),
-    material: j['material'] as String?,
-    features: j['features'] as String?,
-    page: (j['page'] as num?)?.toInt(),
-    variant: (j['variant'] ?? '').toString(),
-    env: j['env'] as String?,
-    lines: (j['lines'] as List).map((l) => PriceLine.fromJson(l as Map<String, dynamic>)).toList(),
-  );
+        id: (j['id'] as num).toInt(),
+        brand: (j['brand'] ?? '').toString(),
+        name: (j['name'] ?? '').toString(),
+        coating: (j['coating'] ?? '').toString(),
+        base: (j['base'] ?? '').toString(),
+        ptype: (j['ptype'] ?? 'SV').toString(),
+        rx: jsTruthy(j['rx']),
+        index: (j['index'] ?? '').toString(),
+        material: j['material'] as String?,
+        features: j['features'] as String?,
+        page: (j['page'] as num?)?.toInt(),
+        variant: (j['variant'] ?? '').toString(),
+        env: j['env'] as String?,
+        lines: (j['lines'] as List).map((l) => PriceLine.fromJson(l as Map<String, dynamic>)).toList(),
+      );
 }
 
 /// A power: sphere, cylinder, axis and addition.
@@ -139,18 +147,18 @@ class Rx {
       Rx(sph: sph ?? this.sph, cyl: cyl ?? this.cyl, axis: axis ?? this.axis, add: add ?? this.add);
 
   double field(String f) => switch (f) {
-    'sph' => sph,
-    'cyl' => cyl,
-    'axis' => axis.toDouble(),
-    _ => add,
-  };
+        'sph' => sph,
+        'cyl' => cyl,
+        'axis' => axis.toDouble(),
+        _ => add,
+      };
 
   Rx withField(String f, double v) => switch (f) {
-    'sph' => copyWith(sph: v),
-    'cyl' => copyWith(cyl: v),
-    'axis' => copyWith(axis: v.round()),
-    _ => copyWith(add: v),
-  };
+        'sph' => copyWith(sph: v),
+        'cyl' => copyWith(cyl: v),
+        'axis' => copyWith(axis: v.round()),
+        _ => copyWith(add: v),
+      };
 
   @override
   bool operator ==(Object other) => other is Rx && other.sph == sph && other.cyl == cyl && other.axis == axis && other.add == add;
@@ -173,16 +181,16 @@ class SuperMaster {
   const SuperMaster({required this.code, required this.title, required this.add, required this.cross, required this.rows, required this.cols});
 
   factory SuperMaster.fromJson(String code, Map<String, dynamic> j) => SuperMaster(
-    code: code,
-    title: (j['t'] ?? '').toString(),
-    add: jsTruthy(j['add']),
-    cross: jsTruthy(j['cross']),
-    rows: (j['rows'] as List).map((r) {
-      final l = r as List;
-      return SmRow((l[0] as num).toDouble(), (l[1] as num?)?.toDouble(), (l[2] as num?)?.toInt());
-    }).toList(),
-    cols: (j['cols'] as List).map((e) => (e as num).toDouble()).toList(),
-  );
+        code: code,
+        title: (j['t'] ?? '').toString(),
+        add: jsTruthy(j['add']),
+        cross: jsTruthy(j['cross']),
+        rows: (j['rows'] as List).map((r) {
+          final l = r as List;
+          return SmRow((l[0] as num).toDouble(), (l[1] as num?)?.toDouble(), (l[2] as num?)?.toInt());
+        }).toList(),
+        cols: (j['cols'] as List).map((e) => (e as num).toDouble()).toList(),
+      );
 }
 
 class SmRow {
@@ -323,32 +331,32 @@ class CartLine {
   String get group => grp ?? (kind == 'grid' ? 'bulk' : 'parcel');
 
   CartLine copy() => CartLine(
-    kind: kind,
-    pid: pid,
-    li: li,
-    liL: liL,
-    qR: qR,
-    qL: qL,
-    qty: qty,
-    price: price,
-    rx: rx,
-    rxL: rxL,
-    diff: diff,
-    wantR: wantR,
-    wantL: wantL,
-    stock: stock,
-    grid: Map.of(grid),
-    eye: eye,
-    lenses: lenses,
-    cells: cells,
-    list: list,
-    lt: lt,
-    ref: ref,
-    note: note,
-    pref: pref,
-    grp: grp,
-    free: free,
-  );
+        kind: kind,
+        pid: pid,
+        li: li,
+        liL: liL,
+        qR: qR,
+        qL: qL,
+        qty: qty,
+        price: price,
+        rx: rx,
+        rxL: rxL,
+        diff: diff,
+        wantR: wantR,
+        wantL: wantL,
+        stock: stock,
+        grid: Map.of(grid),
+        eye: eye,
+        lenses: lenses,
+        cells: cells,
+        list: list,
+        lt: lt,
+        ref: ref,
+        note: note,
+        pref: pref,
+        grp: grp,
+        free: free,
+      );
 }
 
 /// A past order the shop can repeat (simulated history).
@@ -364,15 +372,15 @@ class PastOrder {
   const PastOrder({required this.id, required this.date, required this.kind, required this.desc, this.lines = const [], this.pid, this.li, this.seed});
 
   factory PastOrder.fromJson(Map<String, dynamic> j) => PastOrder(
-    id: j['id'] as String,
-    date: j['date'] as String,
-    kind: j['kind'] as String,
-    desc: j['desc'] as String,
-    lines: ((j['lines'] as List?) ?? const []).map((l) => ((l['pid'] as num).toInt(), Rx.fromJson(l['rx'] as Map<String, dynamic>))).toList(),
-    pid: (j['pid'] as num?)?.toInt(),
-    li: (j['li'] as num?)?.toInt(),
-    seed: j['seed'] as String?,
-  );
+        id: j['id'] as String,
+        date: j['date'] as String,
+        kind: j['kind'] as String,
+        desc: j['desc'] as String,
+        lines: ((j['lines'] as List?) ?? const []).map((l) => ((l['pid'] as num).toInt(), Rx.fromJson(l['rx'] as Map<String, dynamic>))).toList(),
+        pid: (j['pid'] as num?)?.toInt(),
+        li: (j['li'] as num?)?.toInt(),
+        seed: j['seed'] as String?,
+      );
 }
 
 /// The shop the app is signed in as (simulated for the prototype).
@@ -384,10 +392,10 @@ class Customer {
   final int outstanding;
   const Customer({required this.name, required this.tier, required this.tierFactor, required this.limit, required this.outstanding});
   factory Customer.fromJson(Map<String, dynamic> j) => Customer(
-    name: j['name'] as String,
-    tier: j['tier'] as String,
-    tierFactor: (j['tierFactor'] as num).toDouble(),
-    limit: (j['limit'] as num).toInt(),
-    outstanding: (j['outstanding'] as num).toInt(),
-  );
+        name: j['name'] as String,
+        tier: j['tier'] as String,
+        tierFactor: (j['tierFactor'] as num).toDouble(),
+        limit: (j['limit'] as num).toInt(),
+        outstanding: (j['outstanding'] as num).toInt(),
+      );
 }

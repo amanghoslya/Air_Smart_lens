@@ -26,12 +26,22 @@ class StockService {
   /// A range's status: made to order for the RX progressive, otherwise in stock (statuses are per power).
   StockStatus stockOf(Product p, int li) {
     if (p.rx) return const StockStatus('mto');
+    if (p.apiId != null) {
+      if (p.apiNa) return const StockStatus('na');
+      if (p.apiAvailable == false) return const StockStatus('zero', qty: 0);
+      return const StockStatus('in', qty: 999);
+    }
     return const StockStatus('in', qty: 999);
   }
 
   /// One power of a range, by its grid key (see `LensLogic.cellKey`).
   StockStatus cellStock(Product p, int li, String key) {
     if (p.rx) return const StockStatus('mto');
+    if (p.apiId != null) {
+      if (p.apiNa) return const StockStatus('na');
+      if (p.apiAvailable == false) return const StockStatus('zero', qty: 0);
+      return const StockStatus('in', qty: 999);
+    }
     if (mode == StockMode.allInStock) return const StockStatus('in', qty: 999);
     final r = jsHash('so:${p.id}:$li:$key');
     if (r < 0.06) return const StockStatus('na');

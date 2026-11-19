@@ -150,7 +150,7 @@ class SideMenu extends StatelessWidget {
           Expanded(
             child: Text(label, style: TextStyle(fontSize: 14, color: context.c.ink)),
           ),
-          ?trailing,
+          if (trailing != null) trailing!,
         ],
       ),
     ),

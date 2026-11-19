@@ -50,20 +50,20 @@ String rangeCode(double sph, double cyl) {
   final s = a <= 6
       ? 6
       : a <= 8
-      ? 8
-      : a <= 10
-      ? 10
-      : a <= 12
-      ? 12
-      : a <= 15
-      ? 15
-      : 20;
+          ? 8
+          : a <= 10
+              ? 10
+              : a <= 12
+                  ? 12
+                  : a <= 15
+                      ? 15
+                      : 20;
   final ca = cyl.abs();
   final c = ca <= 2
       ? 2
       : ca <= 4
-      ? 4
-      : 6;
+          ? 4
+          : 6;
   return '${sph < 0 ? minus : '+'}$s${cyl < 0 ? minus : '+'}$c';
 }
 
@@ -78,10 +78,11 @@ class LensLogic {
   final Map<String, SuperMaster> superMasters;
   final StockService stock;
   final Customer customer;
+  final Map<int, Product> extraProducts = {};
 
   LensLogic({required this.catalog, required this.superMasters, required this.stock, required this.customer});
 
-  Product product(int pid) => catalog[pid - 1];
+  Product product(int pid) => extraProducts[pid] ?? catalog[pid - 1];
 
   /// `tier(n)`: the shop's price after its tier discount.
   int tier(num n) => jsRound(n * customer.tierFactor);
@@ -187,8 +188,8 @@ class LensLogic {
     int grp(Match x) => x.mto
         ? 2
         : x.diff
-        ? 1
-        : 0;
+            ? 1
+            : 0;
     int rank(Match x) => StockStatus.rank(pairStock(x));
     double pr(Match x) => ((x.p.lines[x.li].price ?? 9e9) + (x.p.lines[x.liL].price ?? 9e9)) / 2;
     stableSort(out, (a, b) {
@@ -320,7 +321,8 @@ class LensLogic {
     final p = m.p;
     final l = p.lines[m.li], lL = p.lines[m.liL];
     final st = pairStock(m);
-    final pR = tier(l.price ?? 0) / 2, pL = tier(lL.price ?? 0) / 2;
+    final pR = (p.apiId != null ? (l.price ?? 0) : tier(l.price ?? 0)) / 2;
+    final pL = (p.apiId != null ? (lL.price ?? 0) : tier(lL.price ?? 0)) / 2;
     final pairs = (qR + qL) / 2;
     return CartLine(
       kind: 'one',
@@ -352,8 +354,8 @@ class LensLogic {
         g[k] = h < 0.08
             ? 10
             : h < 0.18
-            ? 5
-            : 2;
+                ? 5
+                : 2;
       }
     }
     return g;
@@ -448,11 +450,10 @@ class LensLogic {
   String _typ(String pt) => pt == LensType.sv
       ? 'single vision'
       : pt == LensType.kt
-      ? 'KT'
-      : 'progressive';
+          ? 'KT'
+          : 'progressive';
 
-  String _pw(Rx x, String pt) =>
-      '${fmt(x.sph)} sphere${x.cyl != 0 ? ' with ${fmt(x.cyl)} cylinder' : ''}'
+  String _pw(Rx x, String pt) => '${fmt(x.sph)} sphere${x.cyl != 0 ? ' with ${fmt(x.cyl)} cylinder' : ''}'
       '${pt != LensType.sv && x.cyl != 0 ? ' at ${x.axis}°' : ''}'
       '${pt != LensType.sv ? ', add ${fmt(x.add)}' : ''}';
 
@@ -478,20 +479,18 @@ class LensLogic {
       final eyeTxt = c.eye == 'R'
           ? ', right eye only'
           : c.eye == 'L'
-          ? ', left eye only'
-          : '';
+              ? ', left eye only'
+              : '';
       return '${shortName(p)} $typ lenses$eyeTxt, ${l.range} range${l.dia != null ? ', ${l.dia} mm' : ''} — box quantities across ${c.cells} power${c.cells == 1 ? '' : 's'}.';
     }
     final qR = c.qR, qL = c.qL, r = c.rx, lx = c.rxL ?? c.rx;
     String n(double q) => q == 1 ? '1 lens' : '${jsNum(q)} lenses';
     final lL = p.lines[c.liL ?? c.li];
-    final dia = !identical(lL, l)
-        ? ((l.dia != null || lL.dia != null) ? ', ${l.dia ?? '–'} / ${lL.dia ?? '–'} mm' : '')
-        : (l.dia != null ? ', ${l.dia} mm' : '');
+    final dia =
+        !identical(lL, l) ? ((l.dia != null || lL.dia != null) ? ', ${l.dia ?? '–'} / ${lL.dia ?? '–'} mm' : '') : (l.dia != null ? ', ${l.dia} mm' : '');
     final head = '${shortName(p)} $typ$dia';
-    final asked = c.diff && c.wantR != null
-        ? ' Prescribed: ${c.wantL != null ? 'right ${_pw(c.wantR!, pt)}; left ${_pw(c.wantL!, pt)}' : _pw(c.wantR!, pt)}.'
-        : '';
+    final asked =
+        c.diff && c.wantR != null ? ' Prescribed: ${c.wantL != null ? 'right ${_pw(c.wantR!, pt)}; left ${_pw(c.wantL!, pt)}' : _pw(c.wantR!, pt)}.' : '';
     if (c.rxL == null && qR == qL) return '$head. Right and left eye ${_pw(r, pt)}, ${n(qR)} each.$asked';
     final parts = <String>[];
     if (qR != 0) parts.add('right eye ${_pw(r, pt)}, ${n(qR)}');
@@ -575,7 +574,9 @@ class LensLogic {
   /// `pairPrice(p, li, liL)`: price per pair of a power at the shop's tier.
   int? pairPrice(Product p, int li, int? liL) {
     final a = p.lines[li].price, b = p.lines[liL ?? li].price;
-    return a != null && b != null && a != 0 && b != 0 ? tier((a + b) / 2) : null;
+    if (a == null || b == null || a == 0 || b == 0) return null;
+    if (p.apiId != null) return jsRound((a + b) / 2);
+    return tier((a + b) / 2);
   }
 
   /// `fromPrice(p)`: the lowest price of a product.
@@ -584,7 +585,9 @@ class LensLogic {
       for (final l in p.lines)
         if (l.price != null && l.price != 0) l.price!,
     ];
-    return ps.isEmpty ? null : tier(ps.reduce(math.min));
+    if (ps.isEmpty) return null;
+    final m = ps.reduce(math.min);
+    return p.apiId != null ? m : tier(m);
   }
 
   // ---------------- Shop by range (3 Nov) ----------------
@@ -705,6 +708,12 @@ class ScanResult {
   final int liL;
   final Rx? rxL;
   const ScanResult({this.p, this.eye = 'P', this.li = 0, this.rx, this.liL = 0, this.rxL}) : err = null;
-  const ScanResult.error(this.err) : p = null, eye = 'P', li = 0, rx = null, liL = 0, rxL = null;
+  const ScanResult.error(this.err)
+      : p = null,
+        eye = 'P',
+        li = 0,
+        rx = null,
+        liL = 0,
+        rxL = null;
   bool get ok => err == null;
 }

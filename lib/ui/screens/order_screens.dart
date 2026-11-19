@@ -23,8 +23,7 @@ import 'parcel_screens.dart' show typeName;
     final lt = c.lt!;
     return (
       t: 'RX request · ${typeName[lt]}',
-      m:
-          (c.rxL != null ? 'R ${powerTxt(c.rx, lt)} · L ${powerTxt(c.rxL!, lt)}' : powerTxt(c.rx, lt)) +
+      m: (c.rxL != null ? 'R ${powerTxt(c.rx, lt)} · L ${powerTxt(c.rxL!, lt)}' : powerTxt(c.rx, lt)) +
           (c.ref.isNotEmpty ? ' · ${c.ref}' : '') +
           (c.pref.isNotEmpty ? ' · ${c.pref}' : ''),
       p: null,
@@ -36,14 +35,13 @@ import 'parcel_screens.dart' show typeName;
     final e = c.eye == 'R'
         ? ' · right eye'
         : c.eye == 'L'
-        ? ' · left eye'
-        : '';
+            ? ' · left eye'
+            : '';
     return (t: shortName(p), m: 'Bulk$e · ${rg(l.range)}${l.dia != null ? ' · ${l.dia} mm' : ''} · ${c.cells} powers', p: p);
   }
   return (
     t: shortName(p),
-    m:
-        '${typeName[p.ptype]} · ${c.rxL != null ? 'R ${powerTxt(c.rx, p.ptype)} · L ${powerTxt(c.rxL!, p.ptype)}' : powerTxt(c.rx, p.ptype)}'
+    m: '${typeName[p.ptype]} · ${c.rxL != null ? 'R ${powerTxt(c.rx, p.ptype)} · L ${powerTxt(c.rxL!, p.ptype)}' : powerTxt(c.rx, p.ptype)}'
         '${c.stock == 'mto' ? ' · made to order' : ''}${c.ref.isNotEmpty ? ' · ${c.ref}' : ''}',
     p: p,
   );
@@ -55,11 +53,7 @@ String lineHead(AppState s, CartLine c) {
   final p = s.product(c.pid!);
   final l = p.lines[c.li];
   return '${typeName[p.ptype]} · range ${rg(l.range)}${l.dia != null ? ' · ${l.dia} mm' : ''}'
-      '${c.kind == 'grid' && c.eye == 'R'
-          ? ' · right eye'
-          : c.kind == 'grid' && c.eye == 'L'
-          ? ' · left eye'
-          : ''}'
+      '${c.kind == 'grid' && c.eye == 'R' ? ' · right eye' : c.kind == 'grid' && c.eye == 'L' ? ' · left eye' : ''}'
       '${c.stock == 'mto' ? ' · made to order' : ''}${c.ref.isNotEmpty ? ' · ${c.ref}' : ''}';
 }
 
@@ -73,7 +67,8 @@ List<(String, String, double?)> powRows(AppState s, CartLine c) {
   final p = s.product(c.pid!);
   if (c.kind == 'one') {
     final qR = c.qR, qL = c.qL;
-    final unitR = s.logic.tier(p.lines[c.li].price ?? 0) / 2, unitL = s.logic.tier(p.lines[c.liL ?? c.li].price ?? 0) / 2;
+    final unitR = (p.apiId != null ? (p.lines[c.li].price ?? 0) : s.logic.tier(p.lines[c.li].price ?? 0)) / 2;
+    final unitL = (p.apiId != null ? (p.lines[c.liL ?? c.li].price ?? 0) : s.logic.tier(p.lines[c.liL ?? c.li].price ?? 0)) / 2;
     if (c.rxL != null || (p.ptype == LensType.prog && qR != qL)) {
       return [
         if (qR > 0) (powerTxt(c.rx, p.ptype), 'R · ${nfmt(qR)} lens${qR == 1 ? '' : 'es'}', qR * unitR),
@@ -83,8 +78,7 @@ List<(String, String, double?)> powRows(AppState s, CartLine c) {
     return [(powerTxt(c.rx, p.ptype), lineQtyTxt(c), c.qty * c.price)];
   }
   final per = c.eye == 'P' ? 1.0 : 0.5;
-  final rows = [for (final e in c.grid.entries) (e.value, s.logic.cellPower(p, e.key))]
-    ..sort((a, b) {
+  final rows = [for (final e in c.grid.entries) (e.value, s.logic.cellPower(p, e.key))]..sort((a, b) {
       final x = b.$2.sph.compareTo(a.$2.sph);
       if (x != 0) return x;
       final y = a.$2.cyl.compareTo(b.$2.cyl);
@@ -109,44 +103,44 @@ class _PowTable extends StatelessWidget {
     final open = s.cexp.contains(i);
     final show = open ? rows : rows.take(cap).toList();
     TextStyle st({bool head = false, bool bold = false}) => TextStyle(
-      fontSize: head ? 10.5 : 12.5,
-      fontWeight: head || bold ? FontWeight.w600 : FontWeight.w400,
-      letterSpacing: head ? .5 : 0,
-      color: head ? c.ink2 : c.ink,
-      fontFeatures: kTabular,
-    );
+          fontSize: head ? 10.5 : 12.5,
+          fontWeight: head || bold ? FontWeight.w600 : FontWeight.w400,
+          letterSpacing: head ? .5 : 0,
+          color: head ? c.ink2 : c.ink,
+          fontFeatures: kTabular,
+        );
     Widget row(String a, String b, String v, {bool head = false, bool total = false}) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: head || total ? c.sunk : null,
-        border: head ? null : Border(top: BorderSide(color: c.line)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 17,
-            child: Text(
-              a,
-              style: st(head: head, bold: total),
-            ),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: head || total ? c.sunk : null,
+            border: head ? null : Border(top: BorderSide(color: c.line)),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            flex: 10,
-            child: Text(
-              b,
-              style: st(head: head, bold: total),
-            ),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 17,
+                child: Text(
+                  a,
+                  style: st(head: head, bold: total),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 10,
+                child: Text(
+                  b,
+                  style: st(head: head, bold: total),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                v,
+                textAlign: TextAlign.right,
+                style: st(head: head, bold: true),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Text(
-            v,
-            textAlign: TextAlign.right,
-            style: st(head: head, bold: true),
-          ),
-        ],
-      ),
-    );
+        );
     return Container(
       margin: const EdgeInsets.only(top: 10),
       clipBehavior: Clip.antiAlias,
@@ -465,8 +459,8 @@ ScreenView cartScreen(BuildContext context, AppState s) {
   final one = view != 'all'
       ? view
       : !both
-      ? (groups.parcel.isNotEmpty ? 'parcel' : 'bulk')
-      : null;
+          ? (groups.parcel.isNotEmpty ? 'parcel' : 'bulk')
+          : null;
   return ScreenView(
     [
       Hd('Your cart (${s.cart.length})', right: s.cart.isNotEmpty ? LinkBtn('Clear all', onTap: s.clearCart) : null),
@@ -510,16 +504,16 @@ class _OutlineSmall extends StatelessWidget {
   const _OutlineSmall(this.text, this.onTap);
   @override
   Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-      decoration: BoxDecoration(
-        border: Border.all(color: context.c.warn),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(text, style: TextStyle(fontSize: 12, color: context.c.warn)),
-    ),
-  );
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+          decoration: BoxDecoration(
+            border: Border.all(color: context.c.warn),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(text, style: TextStyle(fontSize: 12, color: context.c.warn)),
+        ),
+      );
 }
 
 // ---------------------------------------------------------------- checkout
@@ -608,10 +602,10 @@ ScreenView placedScreen(BuildContext context, AppState s) {
   final title = as == 'staff'
       ? 'Saved to the shop cart'
       : as == 'sub'
-      ? 'Sent to your distributor'
-      : lo != null && lo.cancelled
-      ? 'Order cancelled'
-      : 'Order placed';
+          ? 'Sent to your distributor'
+          : lo != null && lo.cancelled
+              ? 'Order cancelled'
+              : 'Order placed';
   final n = lo?.n ?? 0;
   return ScreenView(
     [
@@ -645,8 +639,8 @@ ScreenView placedScreen(BuildContext context, AppState s) {
                       as == 'owner'
                           ? 'Thank you for ordering from Vishal Optical.'
                           : as == 'staff'
-                          ? 'The owner can place it from the cart.'
-                          : 'Your distributor will confirm the order.',
+                              ? 'The owner can place it from the cart.'
+                              : 'Your distributor will confirm the order.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: c.ink2),
                     ),

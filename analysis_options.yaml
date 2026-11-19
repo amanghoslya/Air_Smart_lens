@@ -11,6 +11,8 @@ analyzer:
     - lib/core/constant/**
     - lib/Screens/**
     - lib/widgets/**
+    - android/**
+    - windows/**
 
 linter:
   rules:

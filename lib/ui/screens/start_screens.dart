@@ -2,6 +2,10 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:air_smart_lens/Screens/Home_Screen/Provider/brandsProvider.dart';
+import 'package:air_smart_lens/Screens/Home_Screen/Provider/catalogProvider.dart';
+import 'package:air_smart_lens/core/Data/responseModel/brandsResModel.dart';
 
 import '../../core/brands.dart';
 import '../../core/models.dart';
@@ -9,6 +13,7 @@ import '../../state/app_scope.dart';
 import '../../state/app_state.dart';
 import '../art.dart';
 import '../icons.dart';
+import '../lens3d.dart' show LoaderLens;
 import '../shell.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -27,32 +32,32 @@ export 'package:air_smart_lens/Screens/Login_Screen/login_screen.dart' show logi
 ScreenView homeScreen(BuildContext context, AppState s) {
   final c = context.c;
   Widget quick(IconDef icon, String label, VoidCallback onTap) => Expanded(
-    child: GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: c.card,
-              border: Border.all(color: c.line),
-            ),
-            alignment: Alignment.center,
-            child: SvgIcon(icon, size: 21, color: c.ink),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Column(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: c.card,
+                  border: Border.all(color: c.line),
+                ),
+                alignment: Alignment.center,
+                child: SvgIcon(icon, size: 21, color: c.ink),
+              ),
+              const SizedBox(height: 7),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, height: 1.2, color: c.ink),
+              ),
+            ],
           ),
-          const SizedBox(height: 7),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11, height: 1.2, color: c.ink),
-          ),
-        ],
-      ),
-    ),
-  );
+        ),
+      );
   final shown = posters.where((x) => x.$2 != 'vishal2_card' && !x.$2.endsWith('1_card')).toList();
   return ScreenView([
     SizedBox(
@@ -89,7 +94,7 @@ ScreenView homeScreen(BuildContext context, AppState s) {
     const SizedBox(height: 8),
     Text('${s.tr('Good morning')}, ${s.cust.name}', style: AppText.small(c)),
     Display(s.tr('See every power,\norder in a minute')),
-    Bleed(child: HeroCarousel(s: s)),
+    Bleed(child: ApiHeroCarousel(s: s)),
     // 6 Nov: Order by (five ways to start), then Shop by brand, which moves along by itself
     HeadRow(s.tr('Order by')),
     Row(
@@ -107,7 +112,7 @@ ScreenView homeScreen(BuildContext context, AppState s) {
       ],
     ),
     HeadRow(s.tr('Shop by brand'), right: LinkBtn(s.tr('See all'), onTap: () => s.go('brands'))),
-    Bleed(child: AutoStrip(children: [for (final b in s.brands) BrandMini(b)])),
+    const Bleed(child: ApiBrandStrip()),
     HeadRow(s.tr('Posters and videos'), right: LinkBtn(s.tr('See all'), onTap: () => s.go('posters'))),
     Strip(
       gap: 10,
@@ -120,7 +125,7 @@ ScreenView homeScreen(BuildContext context, AppState s) {
             image: p.$2,
             title: '${bname(p.$1)} poster',
             sub: 'A3 · A4 · WhatsApp',
-            onTap: () => s.go('posters'), 
+            onTap: () => s.go('posters'),
           ),
       ],
     ),
@@ -240,18 +245,82 @@ class PlayBadge extends StatelessWidget {
   const PlayBadge({super.key, this.size = 30});
   @override
   Widget build(BuildContext context) => Container(
-    width: size,
-    height: size,
-    decoration: const BoxDecoration(color: Color(0xEBFFFFFF), shape: BoxShape.circle),
-    alignment: Alignment.center,
-    child: SvgIcon(Ic.play, size: 14, color: const Color(0xFF1B2130)),
-  );
+        width: size,
+        height: size,
+        decoration: const BoxDecoration(color: Color(0xEBFFFFFF), shape: BoxShape.circle),
+        alignment: Alignment.center,
+        child: SvgIcon(Ic.play, size: 14, color: const Color(0xFF1B2130)),
+      );
+}
+
+/// One card of the Home carousel: a brand picture with its name and tagline written over it.
+class HeroItem {
+  final String key; // catalog brand key, e.g. 'AIR SMART'
+  final String title;
+  final String tagline;
+  final String? url; // picture from the API
+  final String asset; // local picture, used for the card's shape and as a fallback
+  final BrandItem? info; // the API brand, handed to the brand page
+  const HeroItem({required this.key, required this.title, required this.tagline, required this.asset, this.url, this.info});
+}
+
+/// Home's brand cards, loaded from GET /customer/brands. The text over each picture is laid out exactly as before.
+/// While loading it shows grey cards; if the call fails it falls back to the client's local brand cards.
+class ApiHeroCarousel extends ConsumerWidget {
+  final AppState s;
+  const ApiHeroCarousel({super.key, required this.s});
+
+  static List<HeroItem> _local() => [
+        for (final h in heroCards) HeroItem(key: h.$1, title: bname(h.$1), tagline: brandLine[h.$1] ?? '', asset: h.$2),
+      ];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.c;
+    return ref.watch(brandsProvider).when(
+          data: (list) => list.isEmpty
+              ? HeroCarousel(s: s, items: _local())
+              : HeroCarousel(
+                  key: ValueKey(list.length),
+                  s: s,
+                  items: [
+                    for (final b in list)
+                      HeroItem(
+                        key: b.key,
+                        title: (b.name ?? b.id ?? '').trim(),
+                        tagline: brandLine[b.key] ?? b.description ?? '',
+                        url: b.picture,
+                        info: b,
+                        asset: '${b.key.toLowerCase().replaceAll(' ', '')}_bg',
+                      ),
+                  ],
+                ),
+          error: (e, st) => HeroCarousel(s: s, items: _local()),
+          loading: () => SizedBox(
+            height: 340 + 4 + 31,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 35),
+              children: [
+                for (var i = 0; i < 3; i++)
+                  Container(
+                    width: 340 * 768 / 1376,
+                    margin: const EdgeInsets.only(right: 10),
+                    decoration: BoxDecoration(color: c.card2, borderRadius: BorderRadius.circular(16)),
+                  ),
+              ],
+            ),
+          ),
+        );
+  }
 }
 
 /// The client's brand cards as a swipeable carousel with dots, auto-advancing every 4 s.
 class HeroCarousel extends StatefulWidget {
   final AppState s;
-  const HeroCarousel({super.key, required this.s});
+  final List<HeroItem> items;
+  const HeroCarousel({super.key, required this.s, required this.items});
   @override
   State<HeroCarousel> createState() => _HeroCarouselState();
 }
@@ -260,9 +329,10 @@ class _HeroCarouselState extends State<HeroCarousel> {
   final _ctl = ScrollController();
   Timer? _timer;
   int _on = 0;
-  static const  _h = 340.0, _gap = 10.0, _pad = 18.0;
+  static const _h = 340.0, _gap = 10.0, _pad = 18.0;
 
-  List<double> get _widths => [for (final c in heroCards) _h * imageAspect(c.$2, widget.s.data.imageAspect)];
+  List<HeroItem> get _items => widget.items;
+  List<double> get _widths => [for (final c in _items) _h * imageAspect(c.asset, widget.s.data.imageAspect)];
   double _pos(int i) {
     var x = 0.0;
     for (var k = 0; k < i; k++) {
@@ -274,9 +344,9 @@ class _HeroCarouselState extends State<HeroCarousel> {
   int _idx() {
     if (!_ctl.hasClients) return 0;
     final off = _ctl.offset;
-    if (off >= _ctl.position.maxScrollExtent - 2) return heroCards.length - 1;
+    if (off >= _ctl.position.maxScrollExtent - 2) return _items.length - 1;
     var b = 0;
-    for (var i = 0; i < heroCards.length; i++) {
+    for (var i = 0; i < _items.length; i++) {
       if ((_pos(i) - off).abs() < (_pos(b) - off).abs()) b = i;
     }
     return b;
@@ -284,7 +354,7 @@ class _HeroCarouselState extends State<HeroCarousel> {
 
   void _to(int i) {
     if (!_ctl.hasClients) return;
-    i = (i + heroCards.length) % heroCards.length;
+    i = (i + _items.length) % _items.length;
     _ctl.animateTo(_pos(i).clamp(0, _ctl.position.maxScrollExtent), duration: const Duration(milliseconds: 450), curve: Curves.easeInOut);
   }
 
@@ -336,14 +406,14 @@ class _HeroCarouselState extends State<HeroCarousel> {
               controller: _ctl,
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.fromLTRB(_pad, 0, _pad, 4),
-              itemCount: heroCards.length,
+              itemCount: _items.length,
               separatorBuilder: (context, index) => const SizedBox(width: _gap),
               itemBuilder: (context, i) {
-                final h = heroCards[i];
-                final brandTitle = bname(h.$1);
-                final tagline = brandLine[h.$1] ?? '';
+                final h = _items[i];
+                final brandTitle = h.title;
+                final tagline = h.tagline;
                 return Pressable(
-                  onTap: () => widget.s.openBrand(h.$1),
+                  onTap: () => widget.s.openBrand(h.key, info: h.info),
                   child: Container(
                     width: _widths[i],
                     height: _h,
@@ -363,13 +433,23 @@ class _HeroCarouselState extends State<HeroCarousel> {
 
                         // Background clean image (text-free portrait)
                         Positioned.fill(
-                          child: BrandImg(
-                            h.$2,
-                            fit: BoxFit.cover,
-                            alignment: Alignment.center,
-                            fallback: h.$2 == 'welcome_bg' ? 'welcome_full' : null,
-                            semantic: '$brandTitle: $tagline',
-                          ),
+                          child: h.url != null
+                              ? Image.network(
+                                  h.url!,
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment.center,
+                                  semanticLabel: '$brandTitle: $tagline',
+                                  loadingBuilder: (_, child, p) => p == null ? child : const SizedBox(),
+                                  errorBuilder: (ctx, err, st) =>
+                                      BrandImg(h.asset, fit: BoxFit.cover, fallback: h.asset == 'welcome_bg' ? 'welcome_full' : null),
+                                )
+                              : BrandImg(
+                                  h.asset,
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment.center,
+                                  fallback: h.asset == 'welcome_bg' ? 'welcome_full' : null,
+                                  semantic: '$brandTitle: $tagline',
+                                ),
                         ),
 
                         // Top gradient overlay for contrast and header readability
@@ -525,7 +605,7 @@ class _HeroCarouselState extends State<HeroCarousel> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              for (var i = 0; i < heroCards.length; i++)
+              for (var i = 0; i < _items.length; i++)
                 GestureDetector(
                   onTap: () {
                     _to(i);
@@ -585,7 +665,7 @@ ScreenView shopScreen(BuildContext context, AppState s) {
       ),
     ),
     HeadRow(s.tr('Shop by brand'), right: LinkBtn(s.tr('See all'), onTap: () => s.go('brands')), top: 14),
-    Strip(gap: 10, padding: const EdgeInsets.only(bottom: 6), children: [for (final b in s.brands) BrandMini(b)]),
+    const Bleed(child: ApiBrandStrip()),
     HeadRow(s.tr('Order by')),
     Gap(gap: 10, [
       OrderTypeCard(
@@ -662,6 +742,94 @@ class BrandMini extends StatelessWidget {
                 style: TextStyle(fontFamily: kSerif, fontSize: 16, fontWeight: FontWeight.w600, height: 1.1, color: c.ink),
               ),
               Text('${ps.length} product${ps.length == 1 ? '' : 's'}', style: TextStyle(fontSize: 10.5, color: c.ink2)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Home's Shop by brand, loaded from GET /customer/brands. While loading it shows grey tiles; if the call fails it
+/// falls back to the brands in the local catalog so Home is never empty.
+class ApiBrandStrip extends ConsumerWidget {
+  const ApiBrandStrip({super.key});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = AppScope.of(context);
+    final c = context.c;
+    return ref.watch(brandsProvider).when(
+          data: (list) =>
+              list.isEmpty ? AutoStrip(children: [for (final b in s.brands) BrandMini(b)]) : AutoStrip(children: [for (final b in list) ApiBrandMini(b)]),
+          error: (e, st) => AutoStrip(children: [for (final b in s.brands) BrandMini(b)]),
+          loading: () => Strip(
+            gap: 10,
+            padding: const EdgeInsets.only(bottom: 6),
+            children: [
+              for (var i = 0; i < 5; i++)
+                Container(
+                  width: 96,
+                  height: 118 + 6 + 34,
+                  alignment: Alignment.topCenter,
+                  child: Container(
+                    height: 118,
+                    decoration: BoxDecoration(color: c.card2, borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+            ],
+          ),
+        );
+  }
+}
+
+/// `.bmini` for a brand from the API: its picture (network), name and product count.
+class ApiBrandMini extends StatelessWidget {
+  final BrandItem b;
+  const ApiBrandMini(this.b, {super.key});
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final c = context.c;
+    final name = (b.name ?? b.id ?? '').trim();
+    final n = b.productCount ?? 0;
+    final url = b.picture;
+    final local = brandImage[b.key];
+    Widget fallback() => local != null
+        ? BrandImg(local, alignment: const Alignment(0, -0.5))
+        : Center(child: FractionallySizedBox(widthFactor: .62, child: LensArt(tint: c.ink2)));
+    return Semantics(
+      button: true,
+      label: '$name, $n products',
+      child: Pressable(
+        onTap: () => s.openBrand(b.key, info: b),
+        child: SizedBox(
+          width: 96,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 118,
+                width: 96,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(color: c.card2, borderRadius: BorderRadius.circular(14), boxShadow: c.e1),
+                child: url != null
+                    ? Image.network(
+                        url,
+                        fit: BoxFit.cover,
+                        alignment: const Alignment(0, -0.5),
+                        loadingBuilder: (_, child, p) => p == null ? child : const SizedBox(),
+                        errorBuilder: (ctx, err, st) => fallback(),
+                      )
+                    : fallback(),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontFamily: kSerif, fontSize: 16, fontWeight: FontWeight.w600, height: 1.1, color: c.ink),
+              ),
+              Text('$n product${n == 1 ? '' : 's'}', style: TextStyle(fontSize: 10.5, color: c.ink2)),
             ],
           ),
         ),
@@ -760,31 +928,31 @@ class BoxesArt extends StatelessWidget {
   const BoxesArt(this.boxes, {super.key});
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: 76,
-    height: 70,
-    child: Stack(
-      children: [
-        for (final b in boxes)
-          Positioned(
-            left: b.$1,
-            top: b.$2,
-            width: b.$3,
-            height: b.$4,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(3),
-                gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFD9B98C), Color(0xFFC49A63)]),
-                border: Border.all(color: const Color(0x0F000000)),
+        width: 76,
+        height: 70,
+        child: Stack(
+          children: [
+            for (final b in boxes)
+              Positioned(
+                left: b.$1,
+                top: b.$2,
+                width: b.$3,
+                height: b.$4,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(3),
+                    gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFD9B98C), Color(0xFFC49A63)]),
+                    border: Border.all(color: const Color(0x0F000000)),
+                  ),
+                  child: Align(
+                    alignment: const Alignment(-0.0, 0),
+                    child: FractionallySizedBox(widthFactor: .12, heightFactor: 1, child: Container(color: const Color(0x47FFFFFF))),
+                  ),
+                ),
               ),
-              child: Align(
-                alignment: const Alignment(-0.0, 0),
-                child: FractionallySizedBox(widthFactor: .12, heightFactor: 1, child: Container(color: const Color(0x47FFFFFF))),
-              ),
-            ),
-          ),
-      ],
-    ),
-  );
+          ],
+        ),
+      );
 }
 
 /// The RX lens art: a glass disc with an "Rx" tag.
@@ -907,13 +1075,195 @@ const lensTypeCards = [
 ];
 
 ScreenView lensTypeScreen(BuildContext context, AppState s) => ScreenView([
-  Hd(s.tr('Parcel order'), right: SearchBtn(onTap: s.toSearch)),
-  Gap([
-    for (final x in lensTypeCards)
-      PhotoCard(title: x.$3, sub: x.$4, count: '${s.catalog.where((p) => p.ptype == x.$1).length} products', image: x.$2, onTap: () => s.chooseLens(x.$1)),
-  ]),
-  const Muted('Not sure which lens? Enter the power on the next screen and every lens that stocks it is shown.', margin: EdgeInsets.only(top: 14)),
-]);
+      Hd(s.tr('Parcel order'), right: SearchBtn(onTap: s.toSearch)),
+      ApiParcelLensTypeCards(s: s),
+    ]);
+
+class ApiParcelLensTypeCards extends ConsumerStatefulWidget {
+  final AppState s;
+  const ApiParcelLensTypeCards({super.key, required this.s});
+
+  @override
+  ConsumerState<ApiParcelLensTypeCards> createState() => _ApiParcelLensTypeCardsState();
+}
+
+class _ApiParcelLensTypeCardsState extends ConsumerState<ApiParcelLensTypeCards> {
+  ScrollPosition? _scrollPosition;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(catalogProvider.notifier).getCatalogData();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final scrollable = Scrollable.maybeOf(context);
+    final position = scrollable?.position;
+    if (_scrollPosition != position) {
+      _scrollPosition?.removeListener(_onScroll);
+      _scrollPosition = position;
+      _scrollPosition?.addListener(_onScroll);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollPosition?.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final pos = _scrollPosition;
+    if (pos == null) return;
+    if (pos.pixels >= pos.maxScrollExtent - 150) {
+      ref.read(catalogProvider.notifier).loadMoreCatalogData();
+    }
+  }
+
+  static const Map<String, ({String image, String sub, String type})> _staticMeta = {
+    LensType.sv: (
+      image: 'max1_face',
+      sub: 'One power, for distance or reading',
+      type: LensType.sv,
+    ),
+    LensType.kt: (
+      image: 'vishal1_face',
+      sub: 'Two powers, one lens',
+      type: LensType.kt,
+    ),
+    LensType.prog: (
+      image: 'kopperx1_face',
+      sub: 'Seamless vision at all distances',
+      type: LensType.prog,
+    ),
+  };
+
+  static String _resolveLensType(String name) {
+    final clean = name.trim().toLowerCase().replaceAll(RegExp(r'[\s_-]'), '');
+    if (clean.contains('single') || clean == 'sv') return LensType.sv;
+    if (clean.contains('kt')) return LensType.kt;
+    if (clean.contains('prog')) return LensType.prog;
+    if (clean.contains('rx')) return 'RX';
+    for (final entry in LensType.names.entries) {
+      if (entry.value.toLowerCase() == name.trim().toLowerCase()) return entry.key;
+    }
+    return name;
+  }
+
+  List<Widget> _buildDefaultCards(AppState s) {
+    return [
+      for (final x in lensTypeCards)
+        PhotoCard(
+          title: x.$3,
+          sub: x.$4,
+          count: '${s.catalog.where((p) => p.ptype == x.$1).length} products',
+          image: x.$2,
+          onTap: () => s.chooseLens(x.$1),
+        ),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final s = widget.s;
+    final state = ref.watch(catalogProvider);
+
+    // Initial loading state while API call is in progress (clean loader without text)
+    if (state.isLoading && state.lensTypes.isEmpty) {
+      return SizedBox(
+        height: MediaQuery.of(context).size.height * 0.55,
+        child: const Center(
+          child: LoaderLens(size: 96),
+        ),
+      );
+    }
+
+    final List<Widget> cardWidgets = [];
+
+    if (state.lensTypes.isNotEmpty) {
+      for (final item in state.lensTypes) {
+        final title = (item.name?.trim().isNotEmpty == true) ? item.name!.trim() : 'Lens';
+        final typeKey = _resolveLensType(title);
+
+        // RX lens ko comment out / skip kiya gaya hai (Parcel screen me sirf 3 lenses hi show honge)
+        if (typeKey == 'RX' || title.toLowerCase() == 'rx' || title.toLowerCase().startsWith('rx')) {
+          continue; // RX lens commented out / excluded
+        }
+
+        final meta = _staticMeta[typeKey] ??
+            (
+              image: 'max1_face',
+              sub: 'Seamless vision at all distances',
+              type: typeKey,
+            );
+
+        final count = item.count ?? s.catalog.where((p) => p.ptype == typeKey).length;
+        final countText = '$count product${count == 1 ? '' : 's'}';
+
+        cardWidgets.add(
+          PhotoCard(
+            title: title,
+            sub: meta.sub,
+            count: countText,
+            image: meta.image,
+            onTap: () => s.chooseLens(meta.type),
+          ),
+        );
+      }
+    } else {
+      cardWidgets.addAll(_buildDefaultCards(s));
+    }
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification.metrics.pixels >= notification.metrics.maxScrollExtent - 150) {
+          ref.read(catalogProvider.notifier).loadMoreCatalogData();
+        }
+        return false;
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Gap(cardWidgets),
+          const Muted(
+            'Not sure which lens? Enter the power on the next screen and every lens that stocks it is shown.',
+            margin: EdgeInsets.only(top: 14),
+          ),
+          if (state.isLoadMore)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Loading more lenses...',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: c.ink2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
 
 /// Home's Shop by brand (6 Nov): moves one brand along every 2.5 s, back to the start at the end. A touch or drag
 /// pauses it for 6 s so the customer can choose; nothing moves when the phone asks for reduced motion.
@@ -955,8 +1305,8 @@ class _AutoStripState extends State<AutoStrip> {
 
   @override
   Widget build(BuildContext context) => Listener(
-    onPointerDown: (_) => _pause(),
-    onPointerSignal: (_) => _pause(),
-    child: Strip(gap: 10, controller: _ctl, padding: const EdgeInsets.only(bottom: 6), children: widget.children),
-  );
+        onPointerDown: (_) => _pause(),
+        onPointerSignal: (_) => _pause(),
+        child: Strip(gap: 10, controller: _ctl, padding: const EdgeInsets.only(bottom: 6), children: widget.children),
+      );
 }

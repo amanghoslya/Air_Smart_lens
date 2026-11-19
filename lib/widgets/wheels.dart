@@ -113,7 +113,7 @@ class PowerWheels extends StatelessWidget {
               for (var i = 0; i < cols.length; i++) ...[if (i > 0) const SizedBox(width: 6), Expanded(child: col(cols[i]))],
             ],
           ),
-          ?leftBtn,
+          if (leftBtn != null) leftBtn!,
         ],
       ),
     );
