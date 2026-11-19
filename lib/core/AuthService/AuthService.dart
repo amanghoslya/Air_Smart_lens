@@ -113,35 +113,5 @@ class AuthService {
       rethrow;
     }
   }
-  Future<searchPowerResModel> searchPowerData({
-  String? lensType,
-  int? sph,
-  double? cyl,
-  String? brand,
-  int? axis,
-  int? add,
-  String? index,
-  String? coating,
-  bool? availableOnly,
-}) async {
-  try {
-    final requestBody = {
-      "lens_type": lensType,
-      "sph": sph,
-      "cyl": cyl,
-      "brand": brand ?? "",
-      "axis": axis ?? 0,
-      "add": add ?? 0,
-      "index": index ?? "",
-      "coating": coating ?? "",
-      "available_only": availableOnly ?? true,
-    };
-
-    final response = await api.searchPower(requestBody);
-
-    return response;
-  } catch (e) {
-    rethrow;
-  }
-}
+ 
 }
